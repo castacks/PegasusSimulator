@@ -1,5 +1,5 @@
 global_coordinates:
   altitude: 90.0
-  latitude: 38.736832
-  longitude: -9.137977
-px4_dir: ~/PX4-Autopilot
+  latitude: 40.59135818481445
+  longitude: -79.89840698242188
+px4_dir: /home/airlab/darpa/isaac_px4_fork

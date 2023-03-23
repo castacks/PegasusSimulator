@@ -57,7 +57,7 @@ class ROS2Backend(Backend):
 
     def update_state(self, state):
         """
-        Method that when implemented, should handle the receivel of the state of the vehicle using this callback
+        Method that when implemented, should handle the receival of the state of the vehicle using this callback
         """
 
         pose = PoseStamped()

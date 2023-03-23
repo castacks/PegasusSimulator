@@ -63,6 +63,23 @@ class PX4LaunchTool:
             env=self.environment,
         )
 
+    def launch_ros2_agent(self):
+        """
+        Method that will launch a px4 instance with the specified configuration
+        """
+        port = 8888 + int(self.vehicle_id)
+        self.ros2_agent_process = subprocess.Popen(
+            [
+                'micro-ros-agent',
+                'udp4',
+                '--port',
+                str(port),
+            ],
+            cwd=self.root_fs.name,
+            shell=False,
+            env=self.environment,
+        )
+
     def kill_px4(self):
         """
         Method that will kill a px4 instance with the specified configuration
@@ -73,7 +90,7 @@ class PX4LaunchTool:
 
     def __del__(self):
         """
-        If the px4 process is still running when the PX4 launch tool object is whiped from memory, then make sure
+        If the px4 process is still running when the PX4 launch tool object is wiped from memory, then make sure
         we kill the px4 instance so we don't end up with hanged px4 instances
         """
 
@@ -90,6 +107,7 @@ def main():
 
     px4_tool = PX4LaunchTool(os.environ["HOME"] + "/PX4-Autopilot")
     px4_tool.launch_px4()
+    px4_tool.launch_ros2_agent()
 
     import time
 

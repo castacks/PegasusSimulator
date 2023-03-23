@@ -78,7 +78,7 @@ class PegasusApp:
         config_multirotor = MultirotorConfig()
         
         # Create the multirotor configuration
-        mavlink_config = MavlinkBackendConfig({"vehicle_id": vehicle_id, "px4_autolaunch": True, "px4_dir": "/home/marcelo/PX4-Autopilot", "px4_vehicle_model": 'iris'})
+        mavlink_config = MavlinkBackendConfig({"vehicle_id": vehicle_id, "px4_autolaunch": True, "px4_dir": "/home/airlab/darpa/PX4-Autopilot", "px4_vehicle_model": 'iris'})
         config_multirotor.backends = [MavlinkBackend(mavlink_config)]
 
         Multirotor(
