@@ -35,7 +35,7 @@ class PX4LaunchTool:
         # Configurations to whether autostart px4 (SITL) automatically or have the user launch it manually on another
         # terminal
         self.px4_dir = px4_dir
-        self.rc_script = self.px4_dir + "/ROMFS/px4fmu_common/init.d-posix/rcS_isaac"
+        self.rc_script = self.px4_dir + "/ROMFS/px4fmu_common/init.d-posix/rcS"
         # self.rc_script = self.px4_dir + "/ROMFS/px4fmu_common/init.d-posix/rcS"
 
         # Create a temporary filesystem for px4 to write data to/from (and modify the origin rcS files)

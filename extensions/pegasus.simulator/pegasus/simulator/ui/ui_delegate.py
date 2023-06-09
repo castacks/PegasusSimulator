@@ -80,9 +80,9 @@ class UIDelegate:
         # Atributes to store the PX4 airframe
         self._px4_airframe_field: ui.AbstractValueModel = None
         # self._px4_airframe: str = 'iris'
-        self._px4_airframe: str = 'standard_vtol'
-        # self._px4_airframe: str = 'typhoon_h480'
-        self._vehicle_type = 0
+        # self._px4_airframe: str = 'standard_vtol'
+        self._px4_airframe: str = 'typhoon_h480'
+        self._vehicle_type = 2
 
     def set_window_bind(self, window):
         self._window = window
