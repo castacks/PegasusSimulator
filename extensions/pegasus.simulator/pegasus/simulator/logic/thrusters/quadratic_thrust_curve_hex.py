@@ -35,8 +35,8 @@ class QuadraticThrustCurveHex(ThrustCurve):
         # The rotor constant used for computing the total thrust produced by the rotor: T = rotor_constant * omega^2
         # kt = 8.54858e-6
         # km = 1e-6
-        kt = 2.54858e-6
-        km = 2.6e-7
+        kt = 8.54858e-06
+        km = 1e-6
         self._rotor_constant = config.get("rotor_constant", [kt, kt, kt, kt, kt, kt])
         assert len(self._rotor_constant) == self._num_rotors
 
@@ -45,8 +45,8 @@ class QuadraticThrustCurveHex(ThrustCurve):
         assert len(self._yaw_moment_coefficient) == self._num_rotors
 
         # Save the rotor direction of rotation
-        # self._rot_dir = config.get("rot_dir", [1, -1, 1, -1, -1, 1]) # Original px4 website
-        self._rot_dir = config.get("rot_dir", [-1, 1, -1, 1, 1, -1])
+        self._rot_dir = config.get("rot_dir", [1, -1, 1, -1, -1, 1]) # Original px4 website
+        # self._rot_dir = config.get("rot_dir", [-1, 1, -1, 1, 1, -1])
         assert len(self._rot_dir) == self._num_rotors
 
         # Values for the minimum and maximum rotor velocity in rad/s
@@ -103,7 +103,7 @@ class QuadraticThrustCurveHex(ThrustCurve):
             self._force[i] = self._rotor_constant[i] * np.power(self._velocity[i], 2)
 
             # Compute the rolling moment coefficient
-            # yaw_moment += self._yaw_moment_coefficient[i] * np.power(self._velocity[i], 2.0) * self._rot_dir[i]
+            yaw_moment += self._yaw_moment_coefficient[i] * np.power(self._velocity[i], 2.0) * self._rot_dir[i]
 
         # Update the rolling moment variable
         self._yaw_moment = yaw_moment

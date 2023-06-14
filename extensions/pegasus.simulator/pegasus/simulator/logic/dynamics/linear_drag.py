@@ -28,7 +28,7 @@ class LinearDrag(Aerodynamics):
 
         # The linear drag coefficients of the vehicle's body frame
         # self._drag_coefficients = np.diag(drag_coefficients)
-        self._drag_coefficients = (drag_coefficients)
+        self._drag_coefficients = np.diag(drag_coefficients)
         self._air_density = 1.293
         self._reference_area = 1 / 7
         # The drag force to apply on the vehicle's body frame
@@ -60,12 +60,6 @@ class LinearDrag(Aerodynamics):
         # Get the velocity of the vehicle expressed in the body frame of reference
         body_vel = state.linear_body_velocity
 
-        drag = self._drag_coefficients[0] * self._air_density * self._reference_area *(body_vel[0]**2+body_vel[1]**2) / 2
-        # print("self._drag_coefficients[0] = ", self._drag_coefficients[0])
-        # print("self._air_density = ", self._air_density)
-        # print(" = ", drag)
-        # print(" = ", drag)
         # Compute the component of the drag force to be applied in the body frame
-        # self._drag_force = [-1*drag, 0, 0]
-        self._drag_force[0] = -drag
+        self._drag_force = -np.dot(self._drag_coefficients, body_vel)
         return self._drag_force

@@ -19,6 +19,8 @@ from pegasus.simulator.logic.thrusters import QuadraticThrustCurveHex
 from pegasus.simulator.logic.sensors import Barometer, IMU, Magnetometer, GPS
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 
+from scipy.spatial.transform import Rotation as R
+
 class HexConfig:
     """
     A data class that is used for configuring a VTOL
@@ -176,8 +178,9 @@ class TiltedHex(Vehicle):
         rotor_shift = [0, 1, 4, 5, 2, 3]
         for i in range(6):
             # Apply the force in Z on the rotor frame
-            print(f"control {i} = {forces[i]}")
+            # print(f"control {i} = {forces[i]}")
             self.apply_force([0.0, 0.0, forces[i]], body_part="/rotor" + str(i))
+            
             # self.apply_force([0.0, 0.0, 3], body_part="/rotor" + str(rotor_shift[i]))
 
             # Generate the rotating propeller visual effect
@@ -189,6 +192,15 @@ class TiltedHex(Vehicle):
 
         # Compute the total linear drag force to apply to the vehicle's body frame
         drag = self._drag.update(self._state, dt)
+
+        rot = R.from_quat(self._state.attitude)
+
+        # Get the Euler angles (roll, pitch, yaw)
+        euler_angles = rot.as_euler('xyz', degrees=True)
+
+        # print(f"roll:{euler_angles[0]}:roll",end='')
+        # print(f"pitch:{euler_angles[1]}:pitch",end='')
+        # print(f"yaw:{euler_angles[2]}:yaw",end='')
 
         self.apply_force(drag, body_part="/body")
 
@@ -212,10 +224,7 @@ class TiltedHex(Vehicle):
 
         # Spinning when armed but not applying force
         if 0.0 < force < 0.1:
-            if(rotor_number == 4):
                 self._world.dc_interface.set_dof_velocity(joint, 5 * self._thrusters.rot_dir[rotor_number])
-            else:
-                self._world.dc_interface.set_dof_velocity(joint, 100 * self._thrusters.rot_dir[rotor_number])
         # Spinning when armed and applying force
         elif 0.1 <= force:
             self._world.dc_interface.set_dof_velocity(joint, 100 * self._thrusters.rot_dir[rotor_number])
