@@ -508,7 +508,7 @@ class MavlinkBackend(Backend):
             carb.log_info("Attempting to launch PX4 in background process")
             self.px4_tool = PX4LaunchTool(self.px4_dir, self._vehicle_id, self.px4_vehicle_model)
             self.px4_tool.launch_px4()
-            self.px4_tool.launch_ros2_agent()
+            # self.px4_tool.launch_ros2_agent()
 
     def stop(self):
         """Method that when called will handle the stopping of the simulation of vehicle. It will make sure that any open

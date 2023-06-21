@@ -16,7 +16,7 @@ from pegasus.simulator.logic.backends.mavlink_backend import MavlinkBackend
 # Sensors and dynamics setup
 from pegasus.simulator.logic.dynamics import LinearDrag
 from pegasus.simulator.logic.thrusters import QuadraticThrustCurve
-from pegasus.simulator.logic.sensors import Barometer, IMU, Magnetometer, GPS
+from pegasus.simulator.logic.sensors import Barometer, IMU, Magnetometer, GPS, RGBCamera
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 
 class MultirotorConfig:
@@ -40,7 +40,10 @@ class MultirotorConfig:
         self.drag = LinearDrag([0.50, 0.30, 0.0])
 
         # The default sensors for a quadrotor
-        self.sensors = [Barometer(), IMU(), Magnetometer(), GPS()]
+        self.sensors = [Barometer(), IMU(), Magnetometer(), GPS()] # not yet camera becasue backwards compatibility with earlier tutorials
+
+        # Default perception sensors. TODO: Add back to regular sensors later. This was quick fix to isolate camera for debugging
+        self.perception_sensors = []
 
         # The backends for actually sending commands to the vehicle. By default use mavlink (with default mavlink configurations)
         # [Can be None as well, if we do not desired to use PX4 with this simulated vehicle]. It can also be a ROS2 backend
@@ -79,11 +82,21 @@ class Multirotor(Vehicle):
         # 2. Initialize all the vehicle sensors
         self._sensors = config.sensors
         for sensor in self._sensors:
-            sensor.initialize(PegasusInterface().latitude, PegasusInterface().longitude, PegasusInterface().altitude)
+            sensor.initialize(PegasusInterface().latitude, PegasusInterface().longitude, PegasusInterface().altitude, self)
+
+        self._perception_sensors = config.perception_sensors
+        for sensor in self._perception_sensors:
+            print(f"Init {sensor.sensor_type}")
+            sensor.initialize(PegasusInterface().latitude, PegasusInterface().longitude, PegasusInterface().altitude, self)
 
         # Add callbacks to the physics engine to update each sensor at every timestep
         # and let the sensor decide depending on its internal update rate whether to generate new data
         self._world.add_physics_callback(self._stage_prefix + "/Sensors", self.update_sensors)
+
+        # Add callbacks to the render engine to update each perception sensor at every timestep
+        # and let the sensor decide depending on its internal update rate whether to generate new data
+        if self._perception_sensors is not None:
+            self._world.add_render_callback(self._stage_prefix + "/perception_sensors", self.update_perception_sensors)
 
         # 3. Setup the dynamics of the system
         # Get the thrust curve of the vehicle from the configuration
@@ -117,6 +130,29 @@ class Multirotor(Vehicle):
             if sensor_data is not None:
                 for backend in self._backends:
                     backend.update_sensor(sensor.sensor_type, sensor_data)
+
+    def update_perception_sensors(self, mystery):
+        """Callback that is called at every **RENDER** steps and will call the sensor.update method to generate new
+        sensor data. For each data that the sensor generates, the backend.update_sensor method will also be called for
+        every backend.
+
+        Args:
+            dt (float): The time elapsed between the previous and current function calls (s).
+        """
+
+        # Call the update method for the sensor to update its values internally (if applicable)
+
+        for sensor in self._perception_sensors:
+            # import pdb; pdb.set_trace()
+            print("Updating perceptioni...")
+            print(f"frequency: {sensor.camera.get_frequency()}")
+            sensor_data = sensor.update(self._state, sensor.camera.get_dt())
+
+            # If some data was updated and we have a mavlink backend or ros backend (or other), then just update it
+            if sensor_data is not None:
+                for backend in self._backends:
+                    print("updatinig backend")
+                    backend.update_perception_sensor(sensor.sensor_type, sensor_data)
 
     def update_sim_state(self, dt: float):
         """

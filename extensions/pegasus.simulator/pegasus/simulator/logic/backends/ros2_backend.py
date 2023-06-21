@@ -5,6 +5,8 @@
 | License: BSD-3-Clause. Copyright (c) 2023, Marcelo Jacinto. All rights reserved.
 """
 import carb
+# import cv2
+import numpy as np
 from omni.isaac.core.utils.extensions import disable_extension, enable_extension
 
 # Perform some checks, because Isaac Sim some times does not play nice when using ROS/ROS2
@@ -15,11 +17,16 @@ enable_extension("omni.isaac.ros2_bridge")
 # Note: we are performing the imports here to make sure that ROS2 extension was load correctly
 import rclpy
 from std_msgs.msg import Float64
-from sensor_msgs.msg import Imu, MagneticField, NavSatFix, NavSatStatus
+from sensor_msgs.msg import Imu, MagneticField, NavSatFix, NavSatStatus, Image
 from geometry_msgs.msg import PoseStamped, TwistStamped, AccelStamped
 
 import omni.kit.app
 from pegasus.simulator.logic.backends.backend import Backend
+
+is_init = False
+if not is_init:
+    rclpy.init()
+    is_init = True
 
 class ROS2Backend(Backend):
 
@@ -30,7 +37,6 @@ class ROS2Backend(Backend):
         self._num_rotors = num_rotors
 
         # Start the actual ROS2 setup here
-        rclpy.init()
         self.node = rclpy.create_node("vehicle_" + str(vehicle_id))
 
         # Create publishers for the state of the vehicle in ENU
@@ -41,16 +47,18 @@ class ROS2Backend(Backend):
 
         # Create publishers for some sensor data
         self.imu_pub = self.node.create_publisher(Imu, "vehicle" + str(self._id) + "/sensors/imu", 10)
-        self.mag_pub = self.node.create_publisher(MagneticField, "vehicle" + str(self._id) + "/sensors/imu", 10)
+        self.mag_pub = self.node.create_publisher(MagneticField, "vehicle" + str(self._id) + "/sensors/mag", 10)
         self.gps_pub = self.node.create_publisher(NavSatFix, "vehicle" + str(self._id) + "/sensors/gps", 10)
         self.gps_vel_pub = self.node.create_publisher(TwistStamped, "vehicle" + str(self._id) + "/sensors/gps_twist", 10)
+
+        self.camera_pubs = {}
 
         # Subscribe to vector of floats with the target angular velocities to control the vehicle
         # This is not ideal, but we need to reach out to NVIDIA so that they can improve the ROS2 support with custom messages
         # The current setup as it is.... its a pain!!!!
         self.rotor_subs = []
         for i in range(self._num_rotors):
-            self.rotor_subs.append(self.node.create_subscription(Float64, "vehicle" + str(self._id) + "/control/rotor" + str(i) + "/ref", lambda x: self.rotor_callback(x, i),10))
+            self.rotor_subs.append(self.node.create_subscription(Float64, "vehicle" + str(self._id) + "/control/rotor" + str(i) + "/ref", lambda msg, rotor_id=i: self.rotor_callback(msg, rotor_id), 10))
     
         # Setup zero input reference for the thrusters
         self.input_ref = [0.0 for i in range(self._num_rotors)]
@@ -128,6 +136,51 @@ class ROS2Backend(Backend):
             self.update_mag_data(data)
         elif sensor_type == "Barometer":        # TODO - create a topic for the barometer later on
             pass
+
+    def update_perception_sensor(self, sensor_type: str, data):
+        if sensor_type == "RGBCamera":
+            self.update_camera_data(data)
+        else:
+            # Other perception sensors -- LiDAR, Fisheye camera, etc.
+            pass
+
+    def update_camera_data(self, data):
+        """
+        Method used to update the data received by the RGB camera. Note: since
+        encoding the image to bytes is a costly operation, we will we will only
+        do this step in another thread, and we will only publish the image
+        message in this thread after the encoding is done.
+        Args:
+            data (dict): Dictionary with the frame and its metadata
+        """
+
+        # Check if we already have a publisher for that camera id. If not, create one
+        # Not a fan of this...
+        if data["id"] not in self.camera_pubs:
+            self.camera_pubs[data["id"]] = self.node.create_publisher(Image, "vehicle" + str(self._id) + "/camera" + str(data["id"]) + "/image_raw", 10)
+        # Create an empty image message
+        image_msg = Image()
+
+        # Check if the camera is already registered (the first frames are usually empty)
+        print("[update_camera_data] before camera registration check")
+        if data["frame"].shape[0] > 0 and data["frame"].shape[1] > 0:
+            print("[update_camera_data] after camera registration check")
+
+            # Fill the image message
+            image_msg.header.stamp = self.node.get_clock().now().to_msg()
+            image_msg.header.frame_id = "camera" + str(data["id"])
+            image_msg.height = data["frame"].shape[0]
+            image_msg.width = data["frame"].shape[1]
+            image_msg.step = image_msg.width * 3
+
+            # Note: Assign the _data object directly. 
+            # This is a workaround, because the assignment of the data object is painfully slow
+            image_msg.data = data["frame"][:, :, 0:3].tobytes()
+            image_msg.encoding = "rgb8"
+            image_msg.is_bigendian = 0
+
+        # Publish the image message
+        self.camera_pubs[data["id"]].publish(image_msg)
 
     def update_imu_data(self, data):
 
