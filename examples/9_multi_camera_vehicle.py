@@ -1,10 +1,11 @@
-#!/usr/bin/env python
+# !/usr/bin/env python
 """
-| File: 9_ros2_cameras_single_vehicle.py
-| Author: Marcelo Jacinto (marcelo.jacinto@tecnico.ulisboa.pt)
-| License: BSD-3-Clause. Copyright (c) 2023, Marcelo Jacinto. All rights reserved.
+| File: 9_multi_camera_vehicle.py
+| Author: Micah Nye (micahn@andrew.cmu.edu)
+| License: BSD-3-Clause. Copyright (c) 2023, Micah Nye. All rights reserved.
 | Description: This files serves as an example on how to build an app that makes use of the Pegasus API to run a 
-simulation with a single vehicle, controlled using the ROS2 backend system. NOTE: this ROS2 interface only works on Ubuntu 20.04LTS
+simulation with a multiple vehicle, controlled using the ROS2 backend system. These vehicles are capable of being equipped
+with multiple cameras, provided the models have the cameras. NOTE: this ROS2 interface only works on Ubuntu 20.04LTS
 for now. Check the website https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/install_ros.html#enabling-the-ros-ros-2-bridge-extension
 and follow the steps 1, 2 and 3 to make sure that the ROS2 example runs properly
 """
@@ -59,26 +60,38 @@ class PegasusApp:
         # Launch one of the worlds provided by NVIDIA
         self.pg.load_environment(SIMULATION_ENVIRONMENTS["Default Environment"])
 
-        # Create the vehicle
-        # Try to spawn the selected robot in the world to the specified namespace
-        config_multirotor = MultirotorConfig()
-        config_multirotor.perception_sensors += [RGBCamera()] #config={"update_rate": 5.0})]
-        config_multirotor.backends = [ROS2Backend(vehicle_id=1)]
-
-        Multirotor(
-            "/World/quadrotor",
-            ROBOTS['Iris'],
-            0,
-            [0.0, 0.0, 0.07],
-            Rotation.from_euler("XYZ", [0.0, 0.0, 0.0], degrees=True).as_quat(),
-            config=config_multirotor,
-        )
+        for i in range(1):
+            self.vehicle_factory(i, gap_x_axis=1.0, num_cameras=1)
 
         # Reset the simulation environment so that all articulations (aka robots) are initialized
         self.world.reset()
 
         # Auxiliar variable for the timeline callback example
         self.stop_sim = False
+
+    def vehicle_factory(self, vehicle_id: int, gap_x_axis: float, num_cameras: int = 0):
+        """Auxiliar method to create multiple multirotor vehicles
+
+        Args:
+            vehicle_id (int): the vehicle ID to define the unique vehicle instance
+            gap_x_axis (float): the gap to set between vehicle spawns
+        """
+
+        # Create the vehicle
+        # Try to spawn the selected robot in the world to the specified namespace
+        config_multirotor = MultirotorConfig()
+        for cam_id in range(num_cameras):
+            config_multirotor.sensors += [RGBCamera(id=cam_id, app=simulation_app)]
+        config_multirotor.backends = [ROS2Backend(vehicle_id=vehicle_id)]
+
+        Multirotor(
+            "/World/quadrotor",
+            ROBOTS['Iris'],
+            vehicle_id,
+            [gap_x_axis * vehicle_id, 0.0, 0.07],
+            Rotation.from_euler("XYZ", [0.0, 0.0, 0.0], degrees=True).as_quat(),
+            config=config_multirotor,
+        )
 
     def run(self):
         """

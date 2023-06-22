@@ -1,25 +1,29 @@
 """
 | File: rgb_camera.py
-| Author: Marcelo Jacinto (marcelo.jacinto@tecnico.ulisboa.pt)
-| License: BSD-3-Clause. Copyright (c) 2023, Marcelo Jacinto. All rights reserved.
-| Description: Simulates an RGB camera.
+| Author: Micah Nye (micahn@andrew.cmu.edu)
+| License: BSD-3-Clause. Copyright (c) 2023, Micah Nye. All rights reserved.
+| Description: Simulates an RGB camera using the Omnigraph framework provided in Isaacsim
 """
 __all__ = ["RGBCamera"]
 
-import numpy as np
+import carb
+import sys
 
-# Import the Isaac Sim Camera API
-from omni.isaac.sensor import Camera
-from omni.isaac.core.utils.prims import get_prim_at_path, is_prim_path_valid
+import omni
+from omni.isaac.core.utils import stage
+from omni.isaac.core.utils.prims import is_prim_path_valid
+from omni.kit.viewport.utility import get_active_viewport, get_active_viewport_and_window
+import omni.graph.core as og
+from omni.isaac.core.utils.prims import set_targets
 
 from pegasus.simulator.logic.state import State
 from pegasus.simulator.logic.sensors import Sensor
-
+import numpy as np
 
 class RGBCamera(Sensor):
     """The class that implements the Camera sensor. This class inherits the base class Sensor.
     """
-    def __init__(self, id=0, config={}):
+    def __init__(self, id=0, config={"update_rate": 30}, app=None):
         """Initialize the Camera class
 
         Args:
@@ -37,8 +41,10 @@ class RGBCamera(Sensor):
             >>>  "update_rate": 60.0}                 # Hz
         """
 
-        # Initialize the Super class "object" attributes
-        super().__init__(sensor_type="RGBCamera", update_rate=config.get("update_rate", 20.0))
+        # Initialize the Super class "object" attribute
+        # update_rate not necessary
+        super().__init__(sensor_type="RGBCamera", update_rate=config.get("update_rate"))
+        self._simulator_app = app
 
         # Save the id of the sensor
         self._id = id
@@ -51,10 +57,14 @@ class RGBCamera(Sensor):
         self._position = np.array(config.get("position", [0.0, 0.0, 0.0]))
         self._orientation = np.array(config.get("orientation", [0.0, 0.0, 0.0, 1.0]))  # Quaternion [qx, qy, qz, qw]
 
-        # Set the camera parameters
-        self._focal_length = config.get("focal_length", 250.0)
+        # Set the default camera parameters if making a new camera, not already on the vehicle. TODO: Add making new camera support
+        self._focal_length = config.get("focal_length", 24.0)
+        self._focal_distance = config.get("focal_distance", 400.0)
+        self._clipping_range = config.get("clipping_range", [0.0001, 1000000.0])
         self._resolution = config.get("resolution", [640, 480])
         self._set_projection_type = config.get("set_projection_type", "pinhole")
+        self._horizonal_aperture = config.get("horizontal_aperture", 20.9550)
+        self._vertical_aperture = config.get("vertical_aperture", 15.2908)
 
         # Save the current state of the camera sensor
         self._state = {
@@ -66,8 +76,8 @@ class RGBCamera(Sensor):
         }
 
     def initialize(self, origin_lat, origin_lon, origin_alt, vehicle=None):
-        """Method that initializes the sensor latitude, longitude and altitude attributes as well 
-        as the vehicle that the sensor is attached to.
+        """Method that initializes the action graph of the camera. It also initalizes the sensor latitude, longitude and
+        altitude attributes as well as the vehicle that the sensor is attached to.
         
         Args:
             origin_lat (float): NOT USED BY THIS SENSOR
@@ -78,27 +88,69 @@ class RGBCamera(Sensor):
 
         self._vehicle = vehicle
 
-        # Set the prim_path for the camera
-        # camera_prim_path = "/World/camera" + str(self._id) if self._vehicle is None else self._vehicle.prim_path + "/body/camera" + str(self._id)
-        camera_prim_path = self._vehicle.prim_path + "/body/Camera" # + str(self._id)
+        # Set the prim_path for the camera. If the vehicle has one, no need to create a new prim from scratch
+        camera_prim_path = self._vehicle.prim_path + "/body/camera" + str(self._id)
+        if not is_prim_path_valid(camera_prim_path):
+            carb.log_error(f"Could not find camera at prim_path {camera_prim_path}. Not generating the ROS2 publisher")
+            return
+        ros_camera_graph_path = self._vehicle.prim_path  + "/body/ROS2_Camera" + str(self._id)
 
-        # Create the actual camera object with all extrinsics if the prim does not exist, with minimal if prim does exist so not to overwrite
-        # if is_prim_path_valid(camera_prim_path):
-        #     self.camera = Camera(
-        #         prim_path=camera_prim_path,
-        #         frequency=self._update_rate
-        #     )
-        # else:
-        self.camera = Camera(
-            prim_path=camera_prim_path,
-            position=self._position,
-            frequency=self._update_rate,
-            resolution=self._resolution,
-            orientation=self._orientation
-            )
+        self._simulator_app.update()
 
-        # Initialize the camera sensor
-        self.camera.initialize()
+        # Creating an on-demand push graph with cameraHelper nodes to generate ROS image publishers
+        keys = og.Controller.Keys
+        (ros_camera_graph, _, _, _) = og.Controller.edit(
+            {
+                "graph_path": ros_camera_graph_path,
+                "evaluator_name": "push",
+                "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_ONDEMAND,
+            },
+            {
+                keys.CREATE_NODES: [
+                    ("OnTick", "omni.graph.action.OnTick"),
+                    ("createViewport", "omni.isaac.core_nodes.IsaacCreateViewport"),
+                    ("getRenderProduct", "omni.isaac.core_nodes.IsaacGetViewportRenderProduct"),
+                    ("setCamera", "omni.isaac.core_nodes.IsaacSetCameraOnRenderProduct"),
+                    ("cameraHelperRgb", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+                    ("cameraHelperInfo", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+                    ("cameraHelperDepth", "omni.isaac.ros2_bridge.ROS2CameraHelper"),
+                ],
+                keys.CONNECT: [
+                    ("OnTick.outputs:tick", "createViewport.inputs:execIn"),
+                    ("createViewport.outputs:execOut", "getRenderProduct.inputs:execIn"),
+                    ("createViewport.outputs:viewport", "getRenderProduct.inputs:viewport"),
+                    ("getRenderProduct.outputs:execOut", "setCamera.inputs:execIn"),
+                    ("getRenderProduct.outputs:renderProductPath", "setCamera.inputs:renderProductPath"),
+                    ("setCamera.outputs:execOut", "cameraHelperRgb.inputs:execIn"),
+                    ("setCamera.outputs:execOut", "cameraHelperInfo.inputs:execIn"),
+                    ("setCamera.outputs:execOut", "cameraHelperDepth.inputs:execIn"),
+                    ("getRenderProduct.outputs:renderProductPath", "cameraHelperRgb.inputs:renderProductPath"),
+                    ("getRenderProduct.outputs:renderProductPath", "cameraHelperInfo.inputs:renderProductPath"),
+                    ("getRenderProduct.outputs:renderProductPath", "cameraHelperDepth.inputs:renderProductPath"),
+                ],
+                keys.SET_VALUES: [
+                    ("createViewport.inputs:viewportId", self._id),
+                    ("createViewport.inputs:name", self._vehicle._stage_prefix + "/camera" + str(self._id)),
+                    ("cameraHelperRgb.inputs:frameId", "sim_camera" + str(self._id)),
+                    ("cameraHelperRgb.inputs:topicName", "vehicle" + str(self._vehicle._vehicle_id) + "/camera" + str(self._id) + "/image"),
+                    ("cameraHelperRgb.inputs:type", "rgb"),
+                    ("cameraHelperInfo.inputs:frameId", "sim_camera" + str(self._id)),
+                    ("cameraHelperInfo.inputs:topicName", "vehicle" + str(self._vehicle._vehicle_id) + "/camera" + str(self._id) + "/camera_info"),
+                    ("cameraHelperInfo.inputs:type", "camera_info")
+                ],
+            },
+        )
+
+        set_targets(
+            prim=stage.get_current_stage().GetPrimAtPath(ros_camera_graph_path + "/setCamera"),
+            attribute="inputs:cameraPrim",
+            target_prim_paths=[camera_prim_path]
+        )
+
+        # Run the ROS Camera graph once to generate ROS image publishers in SDGPipeline
+        og.Controller.evaluate_sync(ros_camera_graph)
+
+        self._simulator_app.update()
 
     @property
     def state(self):
@@ -114,24 +166,8 @@ class RGBCamera(Sensor):
         Args:
             state (State): The current state of the vehicle. UNUSED IN THIS SENSOR
             dt (float): The time elapsed between the previous and current function calls (s). UNUSED IN THIS SENSOR
-
         Returns:
-            (dict) A dictionary containing the current state of the sensor (the data produced by the sensor)
+            None
         """
-        print("Updating camera input...")
-        # Get the most up to date frame from the camera
-        data = self.camera.get_current_frame()
 
-        # Get is absolute position and orientation relative to the inertial frame in ENU
-        pos, quat = self.camera.get_world_pose()
-
-        # Update the state object
-        self._state = {
-            "id": self._id,
-            "position": pos,
-            "orientation": np.array([quat[1], quat[2], quat[3], quat[0]]),
-            "frame_num": data.get('rendering_frame', -1),
-            "frame": data.get('rgba', None)
-        }
-
-        return self._state
+        return None

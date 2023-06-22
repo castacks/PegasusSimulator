@@ -51,6 +51,7 @@ class ROS2Backend(Backend):
         self.gps_pub = self.node.create_publisher(NavSatFix, "vehicle" + str(self._id) + "/sensors/gps", 10)
         self.gps_vel_pub = self.node.create_publisher(TwistStamped, "vehicle" + str(self._id) + "/sensors/gps_twist", 10)
 
+        # TODO: Investigate camera data publishing from traditional interface for standard node format
         self.camera_pubs = {}
 
         # Subscribe to vector of floats with the target angular velocities to control the vehicle
@@ -136,51 +137,6 @@ class ROS2Backend(Backend):
             self.update_mag_data(data)
         elif sensor_type == "Barometer":        # TODO - create a topic for the barometer later on
             pass
-
-    def update_perception_sensor(self, sensor_type: str, data):
-        if sensor_type == "RGBCamera":
-            self.update_camera_data(data)
-        else:
-            # Other perception sensors -- LiDAR, Fisheye camera, etc.
-            pass
-
-    def update_camera_data(self, data):
-        """
-        Method used to update the data received by the RGB camera. Note: since
-        encoding the image to bytes is a costly operation, we will we will only
-        do this step in another thread, and we will only publish the image
-        message in this thread after the encoding is done.
-        Args:
-            data (dict): Dictionary with the frame and its metadata
-        """
-
-        # Check if we already have a publisher for that camera id. If not, create one
-        # Not a fan of this...
-        if data["id"] not in self.camera_pubs:
-            self.camera_pubs[data["id"]] = self.node.create_publisher(Image, "vehicle" + str(self._id) + "/camera" + str(data["id"]) + "/image_raw", 10)
-        # Create an empty image message
-        image_msg = Image()
-
-        # Check if the camera is already registered (the first frames are usually empty)
-        print("[update_camera_data] before camera registration check")
-        if data["frame"].shape[0] > 0 and data["frame"].shape[1] > 0:
-            print("[update_camera_data] after camera registration check")
-
-            # Fill the image message
-            image_msg.header.stamp = self.node.get_clock().now().to_msg()
-            image_msg.header.frame_id = "camera" + str(data["id"])
-            image_msg.height = data["frame"].shape[0]
-            image_msg.width = data["frame"].shape[1]
-            image_msg.step = image_msg.width * 3
-
-            # Note: Assign the _data object directly. 
-            # This is a workaround, because the assignment of the data object is painfully slow
-            image_msg.data = data["frame"][:, :, 0:3].tobytes()
-            image_msg.encoding = "rgb8"
-            image_msg.is_bigendian = 0
-
-        # Publish the image message
-        self.camera_pubs[data["id"]].publish(image_msg)
 
     def update_imu_data(self, data):
 

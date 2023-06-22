@@ -49,6 +49,7 @@ class Vehicle(Robot):
         self,
         stage_prefix: str,
         usd_path: str = None,
+        vehicle_id: int = 0,
         init_pos=[0.0, 0.0, 0.0],
         init_orientation=[0.0, 0.0, 0.0, 1.0],
     ):
@@ -57,6 +58,7 @@ class Vehicle(Robot):
 
         Args:
             stage_prefix (str): The name the vehicle will present in the simulator when spawned. Defaults to "quadrotor".
+            vehicle_id (int): The ID of the vehicle present in the simulator when spawned. Defaults to 0
             usd_path (str): The USD file that describes the looks and shape of the vehicle. Defaults to "".
             init_pos (list): The initial position of the vehicle in the inertial frame (in ENU convention). Defaults to [0.0, 0.0, 0.0].
             init_orientation (list): The initial orientation of the vehicle in quaternion [qx, qy, qz, qw]. Defaults to [0.0, 0.0, 0.0, 1.0].
@@ -65,10 +67,11 @@ class Vehicle(Robot):
         # Get the current world at which we want to spawn the vehicle
         self._world = PegasusInterface().world
         self._current_stage = self._world.stage
+        self._vehicle_id = vehicle_id
 
         # Save the name with which the vehicle will appear in the stage
         # and the name of the .usd file that contains its description
-        self._stage_prefix = get_stage_next_free_path(self._current_stage, stage_prefix, False)
+        self._stage_prefix = get_stage_next_free_path(self._current_stage, stage_prefix + str(vehicle_id), False)
         self._usd_file = usd_path
 
         # Spawn the vehicle primitive in the world's stage
