@@ -7,7 +7,6 @@
 """
 import numpy as np
 import evdev
-import dronekit
 
 import matplotlib.pyplot as plt
 

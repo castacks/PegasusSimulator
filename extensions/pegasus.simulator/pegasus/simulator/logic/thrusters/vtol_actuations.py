@@ -120,13 +120,13 @@ class VtolActuations(ThrustCurve):
         self._yaw_moment = yaw_moment
 
         body_vel = state.linear_body_velocity
-        # self._yaw_moment += self._rudder_coef * (self._input_reference[8]-100) * body_vel[0]**2
+        self._yaw_moment += self._rudder_coef * (self._input_reference[8]) * body_vel[0]**2
         with open('/home/honda/Documents/aileron_coef.txt', 'r') as f:
             content = f.read()
         self._aileron_coef = float(content)
-        # with open('/home/honda/Documents/pusher_const.txt', 'r') as f:
-        #     content = f.read()
-        # self._rotor_constant[4] = float(content)
+        with open('/home/honda/Documents/pusher_const.txt', 'r') as f:
+            content = f.read()
+        self._rotor_constant[4] = float(content)
         with open('/home/honda/Documents/elev_coef.txt', 'r') as f:
             content = f.read()
         self._elevator_coef = float(content)
@@ -134,12 +134,12 @@ class VtolActuations(ThrustCurve):
             content = f.read()
         self._rudder_coef = float(content)
         
-        self._roll_moment = self._aileron_coef * (self._input_reference[5]-100) * (body_vel[0]**2)
-        self._pitch_moment = self._elevator_coef * (self._input_reference[7]-100) * (body_vel[0]**2)
+        self._roll_moment = self._aileron_coef * (self._input_reference[5]) * (body_vel[0]**2)
+        self._pitch_moment = self._elevator_coef * (self._input_reference[7]) * (body_vel[0]**2)
 
-        self.force[5] = self._aileron_coef * (self._input_reference[5]-100) * (body_vel[0]**2)
-        self.force[6] = self._aileron_coef * (self._input_reference[6]-100) * (body_vel[0]**2)
-        self.force[7] = self._elevator_coef * (self._input_reference[7]-100) * (body_vel[0]**2)
+        self.force[5] = self._aileron_coef * (self._input_reference[5]) * (body_vel[0]**2)
+        self.force[6] = self._aileron_coef * (self._input_reference[6]) * (body_vel[0]**2)
+        self.force[7] = self._elevator_coef * (self._input_reference[7]) * (body_vel[0]**2)
 
         # with open('/home/honda/Documents/pitch_moment.txt', 'r') as f:
         #     content = f.read()
