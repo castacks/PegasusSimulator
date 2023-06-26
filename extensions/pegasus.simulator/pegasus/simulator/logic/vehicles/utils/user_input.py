@@ -68,10 +68,10 @@ class UserInput():
                 self.gamepad.left_y * thrust_max + self.gamepad.right_x*thrust_add_max - self.gamepad.right_y*thrust_add_max, # front left
                 self.gamepad.left_y * thrust_max - self.gamepad.right_x*thrust_add_max + self.gamepad.right_y*thrust_add_max, # back right
                 self.curr_throttle_proportion*250*3, # ~2500 rpm in rad/s (*3)
-                self.stick.x,
-                -self.stick.x,
-                self.stick.y,
-                self.stick.z
+                self.gamepad.right_x,
+                -self.gamepad.right_x,
+                self.gamepad.right_y,
+                0 # rudder
             ]
 
         return input_reference
