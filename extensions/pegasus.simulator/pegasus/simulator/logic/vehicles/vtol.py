@@ -23,8 +23,11 @@ import subprocess
 import json
 from scipy.spatial.transform import Rotation as R
 
-from pegasus.simulator.logic.vehicles.utils.usb_drivers import ThrottleState, StickState, PedalsState
-import pegasus.simulator.logic.vehicles.utils.quadrotor_dynamics as quadrotor_dynamics
+from pegasus.simulator.logic.vehicles.utils.user_input import UserInput
+
+# Use os and pathlib for reading config files
+import os
+from pathlib import Path
 
 class VTOLConfig:
     """
@@ -88,10 +91,15 @@ class VTOL(Vehicle):
         # 1. Initiate the Vehicle object itself
         super().__init__(stage_prefix, usd_file, init_pos, init_orientation)
 
+        self.pegasus_interface = PegasusInterface()    
+
         # 2. Initialize all the vehicle sensors
         self._sensors = config.sensors
         for sensor in self._sensors:
-            sensor.initialize(PegasusInterface().latitude, PegasusInterface().longitude, PegasusInterface().altitude)
+            sensor.initialize(self.pegasus_interface.latitude, self.pegasus_interface.longitude, self.pegasus_interface.altitude)
+
+        self.controller_type = self.pegasus_interface.controller_type # (0 for Rhino joystick/throttle, 1 for Logitech gamepad)
+        self.user_input = UserInput(self.controller_type)
 
         # Add callbacks to the physics engine to update each sensor at every timestep
         # and let the sensor decide depending on its internal update rate whether to generate new data
@@ -112,11 +120,7 @@ class VTOL(Vehicle):
         # Add a callbacks for the
         self._world.add_physics_callback(self._stage_prefix + "/mav_state", self.update_sim_state)
 
-
-        self.throttle = ThrottleState()
-        self.stick = StickState()
-        self.pedals = PedalsState()
-        self.quad = quadrotor_dynamics.quad(0.1, 1e100)
+        self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())
 
     def update_sensors(self, dt: float):
         """Callback that is called at every physics steps and will call the sensor.update method to generate new
@@ -154,76 +158,16 @@ class VTOL(Vehicle):
         """
         for backend in self._backends:
             backend.start()
-        self.plotter = subprocess.Popen(['python3', '/home/honda/mohammad/realtime_plotter.py'], stdin=subprocess.PIPE)
-        
+        self.plotter = subprocess.Popen(['python3', self.curr_dir+'/utils/realtime_plotter.py'], stdin=subprocess.PIPE)
 
     def stop(self):
         """
-        Signal all the backends that the simulation has stoped. This method is invoked automatically when the simulation stops
+        Signal all the backends that the simulation has stopped. This method is invoked automatically when the simulation stops
         """
         for backend in self._backends:
             backend.stop()
         self.plotter.terminate()
         self.plotter.wait()
-
-    def joystick_input_reference(self):
-
-        """
-
-        WITH PX4 Backend:::
-
-            init: all zero.
-
-            reinit: all 100. except rudder=-900.
-
-            hover: 560.x4, rest as above
-
-            transition: 
-                quadrotors still around 560., at some point the first goes to 100, others drop too?
-                pusher ramps up to 851., 
-                al drops to 75, then 106, then 85....... drops below -800
-                ar jumps and then goes above 1000 (al & ar have little correlation...)
-                elevator: 78, 78, -34, 31, .... 108 ... up to 754, down to -900
-
-        input_reference=[
-        r1
-        r2
-        r3
-        r4
-        pusher
-        al
-        ar
-        elevator
-        rudder
-        ]
-        """
-        input_reference = [0.0 for i in range(9)]
-
-        thrust = self.throttle.left * 0.5
-        moments = np.array([
-            [0.0 if abs(self.stick.x) < 0.1 else min(self.stick.x, 0.9)*0.005],
-            [0.0 if abs(self.stick.y) < 0.1 else min(self.stick.y, 0.9)*0.005],
-            [0.0 if abs(self.stick.z) < 0.1 else min(self.stick.z, 0.9)*0.005]
-        ])
-        u, w, F_new, M_new = self.quad.f2w(thrust, moments)
-
-        w_mul = 6.
-
-        input_reference = [
-            0,#w[0] * w_mul,
-            0,#w[1] * w_mul,
-            0,#w[2] * w_mul,
-            0,#w[3] * w_mul,
-            self.throttle.right,
-            self.stick.x,
-            -self.stick.x,
-            self.stick.y,
-            self.stick.z
-        ]
-
-
-
-        return input_reference
 
     def update(self, dt: float):
         """
@@ -243,7 +187,7 @@ class VTOL(Vehicle):
         # else:
         #     desired_rotor_velocities = [0.0 for i in range(self._thrusters._num_rotors)]
 
-        desired_rotor_velocities = self.joystick_input_reference()
+        desired_rotor_velocities = self.user_input.get_input_reference()
 
 
         """
@@ -276,9 +220,6 @@ class VTOL(Vehicle):
 
         print(f"d : {desired_rotor_velocities}")
         print(f"f : {forces}")
-
-        self.stick.refresh()
-        self.throttle.refresh()
 
 
         # Apply force to each rotor

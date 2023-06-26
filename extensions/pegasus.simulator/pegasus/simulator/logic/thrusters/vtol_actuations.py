@@ -7,6 +7,8 @@
 import numpy as np
 from pegasus.simulator.logic.state import State
 from pegasus.simulator.logic.thrusters.thrust_curve import ThrustCurve
+import os
+from pathlib import Path
 
 class VtolActuations(ThrustCurve):
     """Class that implements the dynamics of rotors that can be described by a quadratic thrust curve
@@ -53,7 +55,7 @@ class VtolActuations(ThrustCurve):
         # Values for the minimum and maximum rotor velocity in rad/s
         self.min_rotor_velocity = config.get("min_rotor_velocity", [0, 0, 0, 0, 0])
         assert len(self.min_rotor_velocity) == self._num_rotors
-        mx_v = 1100
+        mx_v = 100000
         self.max_rotor_velocity = config.get("max_rotor_velocity", [mx_v, mx_v, mx_v, mx_v, mx_v])
         assert len(self.max_rotor_velocity) == self._num_rotors
 
@@ -72,6 +74,8 @@ class VtolActuations(ThrustCurve):
         self._rudder_coef = 0.00001
         self._aileron_coef = 0.001
         self._elevator_coef = 0.0000001
+        self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())
+
 
     def set_input_reference(self, input_reference):
         """
@@ -98,7 +102,7 @@ class VtolActuations(ThrustCurve):
         # Compute the actual force to apply to the rotors and the rolling moment contribution
         for i in range(self._num_rotors):
 
-            # Set the actual velocity that each rotor is spinning at (instanenous model - no delay introduced)
+            # Set the actual velocity that each rotor is spinning at (instantaneous model - no delay introduced)
             # Only apply clipping of the input reference
 
             # print("vel size = ", len(self._velocity))
@@ -120,17 +124,17 @@ class VtolActuations(ThrustCurve):
         self._yaw_moment = yaw_moment
 
         body_vel = state.linear_body_velocity
-        self._yaw_moment += self._rudder_coef * (self._input_reference[8]) * body_vel[0]**2
-        with open('/home/honda/Documents/aileron_coef.txt', 'r') as f:
+        self._yaw_moment += self._rudder_coef * (self._input_reference[8]-100) * body_vel[0]**2
+        with open(self.curr_dir+'/aileron_coef.txt', 'r') as f:
             content = f.read()
         self._aileron_coef = float(content)
-        with open('/home/honda/Documents/pusher_const.txt', 'r') as f:
+        with open(self.curr_dir+'/pusher_const.txt', 'r') as f:
             content = f.read()
         self._rotor_constant[4] = float(content)
-        with open('/home/honda/Documents/elev_coef.txt', 'r') as f:
+        with open(self.curr_dir+'/elev_coef.txt', 'r') as f:
             content = f.read()
         self._elevator_coef = float(content)
-        with open('/home/honda/Documents/rudd_coef.txt', 'r') as f:
+        with open(self.curr_dir+'/rudd_coef.txt', 'r') as f:
             content = f.read()
         self._rudder_coef = float(content)
         

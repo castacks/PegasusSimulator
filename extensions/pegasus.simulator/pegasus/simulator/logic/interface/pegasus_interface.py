@@ -68,6 +68,18 @@ class PegasusInterface:
         self._px4_path: str = self._get_px4_path_from_config()
         carb.log_info("Default PX4 path:" + str(self._px4_path))
 
+        self._controller_type = self._get_controller_type_from_config()
+
+
+    @property
+    def controller_type(self):
+        """The current  controller_type
+
+        Returns:
+            controller_type: int (0 for Rhino joystick/throttle, 1 for Logitech gamepad)
+        """
+        return self._controller_type
+
     @property
     def world(self):
         """The current omni.isaac.core.world World instance
@@ -317,6 +329,26 @@ class PegasusInterface:
         # Set the render engine update rate (might not be the same as the physics engine)
         if rendering_dt is not None:
             self._world_settings["rendering_dt"] = rendering_dt
+
+    def _get_controller_type_from_config(self):
+        """
+        Method that reads the configured controller_type from the extension configuration file 
+
+        Returns:
+            int: controller_type (0 for Rhino joystick/throttle, 1 for Logitech gamepad)
+        """
+
+        controller_type = 0
+        
+        # Open the configuration file. If it fails, just return the empty path
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                data = yaml.safe_load(f)
+            controller_type = int(data.get("controller_type", 0))
+        except:
+            carb.log_warn("Could not retrieve controller_type from: " + str(CONFIG_FILE))
+
+        return controller_type
 
     def _get_px4_path_from_config(self):
         """
