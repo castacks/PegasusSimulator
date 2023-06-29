@@ -84,6 +84,10 @@ class LinearDrag(Aerodynamics):
             content = f.read()
         self._wind_surface = float(content)
 
+        with open(self.curr_dir+'/drag_coef.txt', 'r') as f:
+            content = f.read()
+        drag_coeff_0 = float(content)
+
         reference_area0 = 6.
         reference_area1 = 21.
         reference_area2 = 28.

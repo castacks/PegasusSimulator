@@ -36,7 +36,7 @@ class UserInput():
             w_mul = 6.
 
             thrust_max  = 50000
-            thrust_add_max = 1000
+            thrust_add_max = 5000
 
             input_reference = [
                 self.throttle.left * thrust_max - self.stick.x*thrust_add_max - self.stick.y*thrust_add_max, # front right
@@ -44,9 +44,9 @@ class UserInput():
                 self.throttle.left * thrust_max + self.stick.x*thrust_add_max - self.stick.y*thrust_add_max, # front left
                 self.throttle.left * thrust_max - self.stick.x*thrust_add_max + self.stick.y*thrust_add_max, # back right
                 self.throttle.right*250*3, # ~2500 rpm in rad/s (*3)
-                self.stick.x,
-                -self.stick.x,
-                self.stick.y,
+                self.stick.x*10,
+                -self.stick.x*10,
+                self.stick.y*10,
                 self.stick.z
             ]
         
@@ -54,7 +54,7 @@ class UserInput():
             self.gamepad.refresh()
 
             thrust_max  = 50000
-            thrust_add_max = 1000
+            thrust_add_max = 5000
 
             if self.gamepad.b7:
                 self.curr_throttle_proportion -= 0.01
