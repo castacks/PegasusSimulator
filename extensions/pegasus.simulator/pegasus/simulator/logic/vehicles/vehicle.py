@@ -209,13 +209,6 @@ class Vehicle(Robot):
         # Get the attitude according to the convention [w, x, y, z]
         prim = self._world.stage.GetPrimAtPath(self._stage_prefix + "/body")
         rotation_quat = get_world_transform_xform(prim)
-        # rotation_quat = get_world_transform_xform(prim).GetQuaternion()
-
-        testq = get_world_transform_xform(prim)
-        # rot = Rotation.from_quat(np.array([testq[]]))
-        # euler_angles = rot.as_euler('xyz', degrees=True)
-        
-
         rotation_quat_real = rotation_quat.GetReal()
         rotation_quat_img = rotation_quat.GetImaginary()
 

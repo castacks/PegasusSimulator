@@ -1,0 +1,6 @@
+global_coordinates:
+  altitude: 90.0
+  latitude: 38.736832
+  longitude: -9.137977
+px4_dir: /home/airlab/honda/PX4-Autopilot
+controller_type: 0 # 0 for Rhino joystick/throttle, 1 for Logitech gamepad, 2 for PX4

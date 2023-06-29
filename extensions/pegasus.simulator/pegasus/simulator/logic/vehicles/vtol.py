@@ -6,7 +6,6 @@
 """
 
 import numpy as np
-import omni.isaac.core 
 
 # The vehicle interface
 from pegasus.simulator.logic.vehicles.vehicle import Vehicle
@@ -23,6 +22,12 @@ from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 import subprocess
 import json
 from scipy.spatial.transform import Rotation as R
+
+from pegasus.simulator.logic.vehicles.utils.user_input import UserInput
+
+# Use os and pathlib for reading config files
+import os
+from pathlib import Path
 
 class VTOLConfig:
     """
@@ -86,10 +91,15 @@ class VTOL(Vehicle):
         # 1. Initiate the Vehicle object itself
         super().__init__(stage_prefix, usd_file, init_pos, init_orientation)
 
+        self.pegasus_interface = PegasusInterface()    
+
         # 2. Initialize all the vehicle sensors
         self._sensors = config.sensors
         for sensor in self._sensors:
-            sensor.initialize(PegasusInterface().latitude, PegasusInterface().longitude, PegasusInterface().altitude)
+            sensor.initialize(self.pegasus_interface.latitude, self.pegasus_interface.longitude, self.pegasus_interface.altitude)
+
+        self.controller_type = self.pegasus_interface.controller_type # 0 for Rhino joystick/throttle, 1 for Logitech gamepad, 2 for PX4
+        self.user_input = UserInput(self.controller_type)
 
         # Add callbacks to the physics engine to update each sensor at every timestep
         # and let the sensor decide depending on its internal update rate whether to generate new data
@@ -109,6 +119,8 @@ class VTOL(Vehicle):
 
         # Add a callbacks for the
         self._world.add_physics_callback(self._stage_prefix + "/mav_state", self.update_sim_state)
+
+        self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())
 
     def update_sensors(self, dt: float):
         """Callback that is called at every physics steps and will call the sensor.update method to generate new
@@ -146,12 +158,11 @@ class VTOL(Vehicle):
         """
         for backend in self._backends:
             backend.start()
-        self.plotter = subprocess.Popen(['python3', '/home/honda/mohammad/realtime_plotter.py'], stdin=subprocess.PIPE)
-        
+        self.plotter = subprocess.Popen(['python3', self.curr_dir+'/utils/realtime_plotter.py'], stdin=subprocess.PIPE)
 
     def stop(self):
         """
-        Signal all the backends that the simulation has stoped. This method is invoked automatically when the simulation stops
+        Signal all the backends that the simulation has stopped. This method is invoked automatically when the simulation stops
         """
         for backend in self._backends:
             backend.stop()
@@ -171,51 +182,64 @@ class VTOL(Vehicle):
         # Get the articulation root of the vehicle
         articulation = self._world.dc_interface.get_articulation(self._stage_prefix)
         # Get the desired angular velocities for each rotor from the first backend (can be mavlink or other) expressed in rad/s
-        if len(self._backends) != 0:
-            desired_rotor_velocities = self._backends[0].input_reference()
+        if self.controller_type == 2:
+            if len(self._backends) != 0:
+                desired_rotor_velocities = self._backends[0].input_reference()
+            else:
+                desired_rotor_velocities = [0.0 for i in range(self._thrusters._num_rotors)]
+
         else:
-            desired_rotor_velocities = [0.0 for i in range(self._thrusters._num_rotors)]
+            desired_rotor_velocities = self.user_input.get_input_reference()
+
+
+        """
+        input_reference=[
+        r1
+        r2
+        r3
+        r4
+        pusher
+        al
+        ar
+        elevator
+        rudder
+        ]
+        """
 
         # print("desired_rotor_vel = ", len(desired_rotor_velocities))
         # Input the desired rotor velocities in the thruster model
         self._thrusters.set_input_reference(desired_rotor_velocities)
 
         # Get the desired forces to apply to the vehicle
+
+
         
         forces, _, roll_moment, pitch_moment, yaw_moment = self._thrusters.update(self._state, dt)
         # print("force z = ", forces)
         # print("yaw_moment = ", yaw_moment)
         # print("roll_moment = ", roll_moment)
         # print("pitch_moment = ", pitch_moment)
-        aspd_th = 150000
         # Apply force to each rotor
         for i in range(4):
-            if(self.state.airspeed > 15):
-                forces[i] = 0
             # Apply the force in Z on the rotor frame
             self.apply_force([0.0, 0.0, forces[i]], body_part="/rotor" + str(i))
 
             # Generate the rotating propeller visual effect
             self.handle_propeller_visual(i, forces[i], articulation)
 
-        if(self.state.airspeed > aspd_th):
-            forces[4] = 0
         self.apply_force([forces[4], 0.0, 0.0], body_part="/body")
-        
-        # self.apply_force([0.0, 0.0, forces[5]], body_part="/a_l")
-        # self.apply_force([0.0, 0.0, forces[6]], body_part="/a_r")
-        # self.apply_force([0.0, 0.0, forces[7]], pos=[0, -1, 0], body_part="/body")
-
+        self.apply_force([0.0, 0.0, forces[5]], body_part="/a_l")
+        self.apply_force([0.0, 0.0, forces[6]], body_part="/a_r")
+        self.apply_force([0.0, 0.0, forces[7]], body_part="/elevator")
         self.handle_propeller_visual(4, forces[4], articulation)
-        # self.handle_surface_visual(5, self._thrusters._input_reference[5], articulation)
-        # self.handle_surface_visual(6, -self._thrusters._input_reference[6], articulation)
-        # self.handle_surface_visual(7, self._thrusters._input_reference[7], articulation)
-        # self.handle_surface_visual(8, self._thrusters._input_reference[8], articulation)
+        self.handle_surface_visual(5, self._thrusters._input_reference[5], articulation)
+        self.handle_surface_visual(6, -self._thrusters._input_reference[6], articulation)
+        self.handle_surface_visual(7, self._thrusters._input_reference[7], articulation)
+        self.handle_surface_visual(8, self._thrusters._input_reference[8], articulation)
         # Apply the torque to the body frame of the vehicle that corresponds to the rolling moment
         
         self.apply_torque([0.0, 0.0, yaw_moment], "/body")
         # self.apply_torque([roll_moment, pitch_moment, yaw_moment], "/body")
-        # self.apply_torque([0.0, pitch_moment, 0.0], "/body")
 
         q = self._state.attitude
         rot = R.from_quat(q)
@@ -223,22 +247,16 @@ class VTOL(Vehicle):
 
         # Get the Euler angles (roll, pitch, yaw)
         euler_angles = rot.as_euler('xyz', degrees=True)
-
-        # print("roll = ", euler_angles[0])
-        # print("pitch = ", euler_angles[1])
-        # print("yaw = ", euler_angles[2])
         # Compute the total linear drag force to apply to the vehicle's body frame
         drag = self._drag.update(self._state, euler_angles[1]+8, dt)
         lift = self._lift.update(self._state, euler_angles[1]+8, dt)
 
-        if(self.state.airspeed > aspd_th):
-            drag[0] = 0
 
         # print("lift = ", lift)
         # print("drag = ", drag)
         # print("pusher = ", forces[4])
 
-        # self.apply_force(drag, body_part="/body")
+        self.apply_force(drag, body_part="/body")
         self.apply_force(lift, body_part="/body")
 
     

@@ -46,3 +46,4 @@ log/
 extensions/pegasus.simulator/pegasus/simulator/assets/Robots/Passenger_vtol/*.usd
 extensions/pegasus.simulator/pegasus/simulator/assets/Robots/Hexarotor/*.usd
 
+*.swp

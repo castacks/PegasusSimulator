@@ -9,6 +9,9 @@ from pegasus.simulator.logic.dynamics.aerodynamics import Aerodynamics
 from pegasus.simulator.logic.state import State
 from scipy.io import loadmat
 from scipy.interpolate import interp1d
+import os
+from pathlib import Path
+
 
 class Lift(Aerodynamics):
     """
@@ -37,6 +40,7 @@ class Lift(Aerodynamics):
 
         # The lift force to apply on the vehicle's body frame
         self._lift_force = np.array([0.0, 0.0, 0.0])
+        self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())
 
     @property
     def force(self):
@@ -49,7 +53,7 @@ class Lift(Aerodynamics):
         return self._lift_force
 
     def get_cl(self, alpha):
-        data = loadmat('/home/honda/mohammad/C_l.mat')  # Load .mat file
+        data = loadmat(self.curr_dir+'/C_l.mat')  # Load .mat file
         cl_data = data['C_l'].ravel()  # Assuming 'C_l' is a 1D array in the .mat file
 
         alpha_points = np.concatenate([np.arange(-8.5, 14, 0.25), [14.5, 14.75, 15]])
@@ -77,12 +81,16 @@ class Lift(Aerodynamics):
         """
 
         # Get the velocity of the vehicle expressed in the body frame of reference
-        # with open('/home/honda/Documents/wind_surface.txt', 'r') as f:
-        #     content = f.read()
-        # self._wind_surface = float(content)
+        body_vel = state.linear_body_velocity
+
         # self._lift_coefficients = self.get_cl(pitch)
 
-        body_vel = state.linear_body_velocity
+        with open(self.curr_dir+'/wind_surface.txt', 'r') as f:
+            content = f.read()
+        self._wind_surface = float(content)
+        with open(self.curr_dir+'/lift_coeff.txt', 'r') as f:
+            content = f.read()
+        self._lift_coefficients = float(content)
 
         lift = self._lift_coefficients * self._air_density * self._wind_surface * (body_vel[0]**2) / 2
         # lift = 0
