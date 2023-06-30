@@ -84,12 +84,12 @@ class LinearDrag(Aerodynamics):
             content = f.read()
         self._wind_surface = float(content)
 
-        reference_area0 = 6.
-        reference_area1 = 21.
-        reference_area2 = 28.
+        reference_area0 = 39.
+        reference_area1 = 50.
+        reference_area2 = 50.
 
-        drag_coeff_0 = 0.03
-
+        drag_coeff_0 = 0.028792533509337727
+        
         drag0 = drag_coeff_0 * self._air_density * reference_area0 *(body_vel[0]**2) / 2 * - np.sign(body_vel[0])
         drag1 = drag_coeff_0 * self._air_density * reference_area1 *(body_vel[1]**2) / 2 * - np.sign(body_vel[1])
         drag2 = drag_coeff_0 * self._air_density * reference_area2 *(body_vel[2]**2) / 2 * - np.sign(body_vel[2])

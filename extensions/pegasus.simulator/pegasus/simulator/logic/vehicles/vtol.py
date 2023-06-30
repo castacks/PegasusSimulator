@@ -24,6 +24,8 @@ import json
 from scipy.spatial.transform import Rotation as R
 
 from pegasus.simulator.logic.vehicles.utils.user_input import UserInput
+from pegasus.simulator.logic.vehicles.utils.fixed_wing_dynamics import UAVDynamics
+from pegasus.simulator.logic.vehicles.utils.parameters.uav_parameters import UAVParams
 
 # Use os and pathlib for reading config files
 import os
@@ -48,7 +50,11 @@ class VTOLConfig:
         # The default thrust curve for a quadrotor and dynamics relating to drag
         self.actuations = VtolActuations()
 
-        self.drag = LinearDrag([0.013048518355835032, 0.0, 0.0])
+        # PX4 params
+        # self.drag = LinearDrag([0.013048518355835032, 0.0, 0.0])
+        # self.lift = Lift(0.21312836926485837)
+
+        self.drag = LinearDrag([0.028792533509337727, 0.0, 0.0])
         self.lift = Lift(0.21312836926485837)
         
 
@@ -59,6 +65,8 @@ class VTOLConfig:
         # [Can be None as well, if we do not desired to use PX4 with this simulated vehicle]. It can also be a ROS2 backend
         # or your own custom Backend implementation!
         self.backends = [MavlinkBackendVTOL()]
+
+
 
         
 
@@ -121,6 +129,10 @@ class VTOL(Vehicle):
         self._world.add_physics_callback(self._stage_prefix + "/mav_state", self.update_sim_state)
 
         self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())
+
+
+        fw_params = UAVParams(self.curr_dir + '/utils/parameters/params.yaml')
+        self.fw_dynamics = UAVDynamics(fw_params)
 
     def update_sensors(self, dt: float):
         """Callback that is called at every physics steps and will call the sensor.update method to generate new
@@ -215,10 +227,67 @@ class VTOL(Vehicle):
 
         
         forces, _, roll_moment, pitch_moment, yaw_moment = self._thrusters.update(self._state, dt)
-        # print("force z = ", forces)
-        # print("yaw_moment = ", yaw_moment)
-        # print("roll_moment = ", roll_moment)
-        # print("pitch_moment = ", pitch_moment)
+        
+        q1 = [1,0,0,0] #x,y,z,w
+        q2 = [
+            self.state.attitude[1],
+            self.state.attitude[2],
+            self.state.attitude[3],
+            self.state.attitude[0],
+        ]
+
+        q_final = [
+            q2[3],
+            -q2[2],
+            q2[1],
+            -q2[0]
+        ]
+        
+        self.fw_dynamics.state = [
+            self.state.position[0],
+            self.state.position[1],
+            self.state.position[2],
+            self.state.linear_body_velocity[0],
+            -self.state.linear_body_velocity[1],
+            -self.state.linear_body_velocity[2],
+            q_final[0],
+            q_final[1],
+            q_final[2],
+            q_final[3],
+            self.state.angular_velocity[0],
+            -self.state.angular_velocity[1],
+            -self.state.angular_velocity[2]
+        ]
+        delta = [
+            self._thrusters._input_reference[7],
+            self._thrusters._input_reference[5],
+            self._thrusters._input_reference[8],
+            self._thrusters._input_reference[4],
+        ]
+        fx, fy, fz, Mx, My, Mz = self.fw_dynamics._forces_moments(delta)
+
+        if np.isnan(fx):
+            fx = 0.
+        if np.isnan(fy):
+            fy = 0.
+        if np.isnan(fz):
+            fz = 0.
+        if np.isnan(Mx):
+            Mx = 0.
+        if np.isnan(My):
+            My = 0.
+        if np.isnan(Mz):
+            Mz = 0.
+
+        fy = - fy
+        fz = - fz
+        My = - My
+        Mz = - Mz
+        
+        self.apply_force([fx, fy, fz], body_part="/body")
+        self.apply_torque([Mx, My, Mz], "/body")
+
+        self.apply_torque([0.0, 0.0, yaw_moment], "/body")
         # Apply force to each rotor
         for i in range(4):
             # Apply the force in Z on the rotor frame
@@ -227,10 +296,19 @@ class VTOL(Vehicle):
             # Generate the rotating propeller visual effect
             self.handle_propeller_visual(i, forces[i], articulation)
 
-        self.apply_force([forces[4], 0.0, 0.0], body_part="/body")
-        self.apply_force([0.0, 0.0, forces[5]], body_part="/a_l")
-        self.apply_force([0.0, 0.0, forces[6]], body_part="/a_r")
-        self.apply_force([0.0, 0.0, forces[7]], body_part="/elevator")
+
+        # # vertical stabilizing force
+        # vz_tail = self._state.linear_body_velocity[2] + 4. * self._state.angular_velocity[1]
+        # pitch_stabilizing_force = -vz_tail**2*np.sign(vz_tail) * 2
+        # vy_tail = self._state.linear_body_velocity[1] - 4. * self._state.angular_velocity[2]
+        # yaw_stabilizing_force = vy_tail**2*np.sign(vy_tail) * 10
+        # self.apply_torque([0.0, pitch_stabilizing_force, yaw_stabilizing_force], "/body")
+
+
+        # self.apply_force([forces[4], 0.0, 0.0], body_part="/body")
+        # self.apply_force([0.0, 0.0, forces[5]], body_part="/a_l")
+        # self.apply_force([0.0, 0.0, forces[6]], body_part="/a_r")
+        # self.apply_force([0.0, 0.0, forces[7]], body_part="/elevator")
         self.handle_propeller_visual(4, forces[4], articulation)
         self.handle_surface_visual(5, self._thrusters._input_reference[5], articulation)
         self.handle_surface_visual(6, -self._thrusters._input_reference[6], articulation)
@@ -238,7 +316,7 @@ class VTOL(Vehicle):
         self.handle_surface_visual(8, self._thrusters._input_reference[8], articulation)
         # Apply the torque to the body frame of the vehicle that corresponds to the rolling moment
         
-        self.apply_torque([0.0, 0.0, yaw_moment], "/body")
+        # self.apply_torque([0.0, 0.0, yaw_moment], "/body")
         # self.apply_torque([roll_moment, pitch_moment, yaw_moment], "/body")
 
         q = self._state.attitude
@@ -256,21 +334,21 @@ class VTOL(Vehicle):
         # print("drag = ", drag)
         # print("pusher = ", forces[4])
 
-        self.apply_force(drag, body_part="/body")
-        self.apply_force(lift, body_part="/body")
+        # self.apply_force(drag, body_part="/body")
+        # self.apply_force(lift, body_part="/body")
 
     
         plots_data = [
-            {"label": "Drag X",       "value": drag[0]},
+            # {"label": "Drag X",       "value": drag[0]},
             # {"label": "Drag Y",       "value": drag[1]},
             # {"label": "Drag Z",       "value": drag[2]},
             
             # {"label": "Angular Vel X",       "value": self._state.angular_velocity[0]},
             # {"label": "Angular Vel Y",       "value": self._state.angular_velocity[1]},
             # {"label": "Angular Vel Z",       "value": self._state.angular_velocity[2]},
-            {"label": "Roll",       "value": euler_angles[0]},
-            {"label": "Pitch",       "value": euler_angles[1]},
-            {"label": "Yaw",       "value": euler_angles[2]},
+            # {"label": "Roll",       "value": euler_angles[0]},
+            # {"label": "Pitch",       "value": euler_angles[1]},
+            # {"label": "Yaw",       "value": euler_angles[2]},
             # {"label": "Linear Acc X",       "value": self._state.linear_acceleration[0]},
             # {"label": "Linear Acc Y",       "value": self._state.linear_acceleration[1]},
             # {"label": "Linear Acc Z",       "value": self._state.linear_acceleration[2]},
@@ -280,11 +358,11 @@ class VTOL(Vehicle):
             # {"label": "X",       "value": self._state.position[0]},
             # {"label": "Y",       "value": self._state.position[1]},
             # {"label": "Z",       "value": self._state.position[2]},
-            {"label": "Lift",       "value": lift[2]},
-            {"label": "Airspeed",   "value": self._state.linear_body_velocity[0]},
-            {"label": "Pusher",   "value": self._thrusters.force[4]},
-            {"label": "Pusher Command",   "value": self._thrusters._input_reference[4]},
-            {"label": "Altitude",   "value": self._state.position[2]},
+            # {"label": "Lift",       "value": lift[2]},
+            # {"label": "Airspeed",   "value": self._state.linear_body_velocity[0]},
+            # {"label": "Pusher",   "value": self._thrusters.force[4]},
+            # {"label": "Pusher Command",   "value": self._thrusters._input_reference[4]},
+            # {"label": "Altitude",   "value": self._state.position[2]},
             # {"label": "Pitch Force",   "value": forces[7]},
             # {"label": "Pitch moment",   "value": pitch_moment},
             # {"label": "Elevator Command",   "value": self._thrusters._input_reference[7]},
@@ -295,10 +373,15 @@ class VTOL(Vehicle):
             # {"label": "Roll Force Right",   "value": forces[6]},
             # {"label": "Aileron Right Command",   "value": self._thrusters._input_reference[6]},
             
-            {"label": "MC Rotor 1",   "value": self._thrusters.force[0]},
-            {"label": "MC Rotor 2",   "value": self._thrusters.force[1]},
-            {"label": "MC Rotor 3",   "value": self._thrusters.force[2]},
-            {"label": "MC Rotor 4",   "value": self._thrusters.force[3]},
+            {"label": "fx",   "value": fx},
+            {"label": "fy",   "value": fy},
+            {"label": "fz",   "value": fz},
+            {"label": "Mx",   "value": Mx},
+            {"label": "My",   "value": My},
+            {"label": "Mz",   "value": Mz},
+            # {"label": "MC Rotor 2",   "value": self._thrusters.force[1]},
+            # {"label": "MC Rotor 3",   "value": self._thrusters.force[2]},
+            # {"label": "MC Rotor 4",   "value": self._thrusters.force[3]},
         ]
 
         # Send each plot data to the qt plot script

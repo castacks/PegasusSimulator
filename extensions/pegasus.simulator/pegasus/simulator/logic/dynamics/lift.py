@@ -85,12 +85,14 @@ class Lift(Aerodynamics):
 
         # self._lift_coefficients = self.get_cl(pitch)
 
-        with open(self.curr_dir+'/wind_surface.txt', 'r') as f:
-            content = f.read()
-        self._wind_surface = float(content)
-        with open(self.curr_dir+'/lift_coeff.txt', 'r') as f:
-            content = f.read()
-        self._lift_coefficients = float(content)
+        # with open(self.curr_dir+'/wind_surface.txt', 'r') as f:
+        #     content = f.read()
+        # self._wind_surface = float(content)
+        # with open(self.curr_dir+'/lift_coeff.txt', 'r') as f:
+        #     content = f.read()
+        # self._lift_coefficients = float(content)
+
+        
 
         lift = self._lift_coefficients * self._air_density * self._wind_surface * (body_vel[0]**2) / 2
         # lift = 0

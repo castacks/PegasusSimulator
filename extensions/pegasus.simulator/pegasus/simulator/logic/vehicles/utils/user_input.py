@@ -5,7 +5,7 @@ import pegasus.simulator.logic.vehicles.utils.quadrotor_dynamics as quadrotor_dy
 
 
 class UserInput():
-    def __init__(self, controller_type = 0):
+    def __init__(self, controller_type = 0, px4_control_surface_bias = 0):
 
         self.controller_type = controller_type
 
@@ -16,6 +16,8 @@ class UserInput():
 
         self.quad = quadrotor_dynamics.quad(0.1, 1e100)
         self.curr_throttle_proportion = 0. 
+
+        self.control_surface_bias = px4_control_surface_bias
 
     def get_input_reference(self):
 
@@ -35,15 +37,15 @@ class UserInput():
 
             w_mul = 6.
 
-            thrust_max  = 50000
-            thrust_add_max = 1000
+            thrust_max  = 300.
+            thrust_add_max = 50.
 
             input_reference = [
                 self.throttle.left * thrust_max - self.stick.x*thrust_add_max - self.stick.y*thrust_add_max, # front right
                 self.throttle.left * thrust_max + self.stick.x*thrust_add_max + self.stick.y*thrust_add_max, # back left
                 self.throttle.left * thrust_max + self.stick.x*thrust_add_max - self.stick.y*thrust_add_max, # front left
                 self.throttle.left * thrust_max - self.stick.x*thrust_add_max + self.stick.y*thrust_add_max, # back right
-                self.throttle.right*250*3, # ~2500 rpm in rad/s (*3)
+                self.throttle.right, # ~3000 rpm in rad/s
                 self.stick.x,
                 -self.stick.x,
                 self.stick.y,
@@ -74,4 +76,9 @@ class UserInput():
                 0 # rudder
             ]
 
+
+        input_reference[5] += self.control_surface_bias
+        input_reference[6] += self.control_surface_bias
+        input_reference[7] += self.control_surface_bias
+        input_reference[8] += self.control_surface_bias
         return input_reference

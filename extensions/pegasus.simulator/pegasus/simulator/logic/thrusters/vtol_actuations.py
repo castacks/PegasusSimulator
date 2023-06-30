@@ -41,8 +41,11 @@ class VtolActuations(ThrustCurve):
         # kt = 2e-05 * 7/5 * 7/5
         # kt_p = 8.54858e-06 
         # km = 1e-06 * 7/5 * 7/5
-        kt = 2e-05 * 4150.37012 / 5  * 7/5* 7/5
-        kt_p = 2e-05 * 4150.37012 / 5  * 7/5* 7/5 * 4
+
+        # kt = 2e-05 * 4150.37012 / 5  * 7/5* 7/5
+        kt = 0.18315984515978836
+        # kt_p = 2e-05 * 4150.37012 / 5  * 7/5* 7/5
+        kt_p = 0.18315984515978836 * 3
         km = 1e-06 * 4150.37012 / 5 * 7/5* 7/5
 
         self._rotor_constant = config.get("rotor_constant", [kt, kt, kt, kt, kt_p])
@@ -59,7 +62,7 @@ class VtolActuations(ThrustCurve):
         # Values for the minimum and maximum rotor velocity in rad/s
         self.min_rotor_velocity = config.get("min_rotor_velocity", [0, 0, 0, 0, 0])
         assert len(self.min_rotor_velocity) == self._num_rotors
-        mx_v = 1100
+        mx_v = 300.
         self.max_rotor_velocity = config.get("max_rotor_velocity", [mx_v, mx_v, mx_v, mx_v, mx_v])
         assert len(self.max_rotor_velocity) == self._num_rotors
 
@@ -128,26 +131,26 @@ class VtolActuations(ThrustCurve):
         self._yaw_moment = yaw_moment
 
         body_vel = state.linear_body_velocity
-        self._yaw_moment += self._rudder_coef * (self._input_reference[8]-100) * body_vel[0]**2
-        with open(self.curr_dir+'/aileron_coef.txt', 'r') as f:
-            content = f.read()
-        self._aileron_coef = float(content)
-        with open(self.curr_dir+'/pusher_const.txt', 'r') as f:
-            content = f.read()
-        self._rotor_constant[4] = float(content)
-        with open(self.curr_dir+'/elev_coef.txt', 'r') as f:
-            content = f.read()
-        self._elevator_coef = float(content)
-        with open(self.curr_dir+'/rudd_coef.txt', 'r') as f:
-            content = f.read()
-        self._rudder_coef = float(content)
+        # self._yaw_moment += self._rudder_coef * (self._input_reference[8]-100) * body_vel[0]**2
+        # with open(self.curr_dir+'/aileron_coef.txt', 'r') as f:
+        #     content = f.read()
+        # self._aileron_coef = float(content)
+        # with open(self.curr_dir+'/pusher_const.txt', 'r') as f:
+        #     content = f.read()
+        # self._rotor_constant[4] = float(content)
+        # with open(self.curr_dir+'/elev_coef.txt', 'r') as f:
+        #     content = f.read()
+        # self._elevator_coef = float(content)
+        # with open(self.curr_dir+'/rudd_coef.txt', 'r') as f:
+        #     content = f.read()
+        # self._rudder_coef = float(content)
         
         self._roll_moment = self._aileron_coef * (self._input_reference[5]-100) * (body_vel[0]**2)
         self._pitch_moment = self._elevator_coef * (self._input_reference[7]-100) * (body_vel[0]**2)
 
-        self.force[5] = self._aileron_coef * (self._input_reference[5]-100) * (body_vel[0]**2)
-        self.force[6] = self._aileron_coef * (self._input_reference[6]-100) * (body_vel[0]**2)
-        self.force[7] = self._elevator_coef * (self._input_reference[7]-100) * (body_vel[0]**2)
+        # self.force[5] = self._aileron_coef * (self._input_reference[5]-100) * (body_vel[0]**2)
+        # self.force[6] = self._aileron_coef * (self._input_reference[6]-100) * (body_vel[0]**2)
+        # self.force[7] = self._elevator_coef * (self._input_reference[7]-100) * (body_vel[0]**2)
 
         # with open('/home/honda/Documents/pitch_moment.txt', 'r') as f:
         #     content = f.read()
