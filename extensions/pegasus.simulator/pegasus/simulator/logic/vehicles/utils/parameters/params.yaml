@@ -16,82 +16,93 @@ initial_conditions:
   r0: 0.0
 
 physical_params:
+  # Mass of the aircraft in kilograms
   mass: 4150.37012
 
-  Jx: 44944.009619
-  Jy: 29971.711866
-  Jz: 44944.009619
-  Jxz: 4000.
+  # Moments of inertia (in kg.m^2) about the body-axes
+  Jx: 44944.009619 # Moment of inertia around the x-axis
+  Jy: 29971.711866 # Moment of inertia around the y-axis
+  Jz: 44944.009619 # Moment of inertia around the z-axis
+  Jxz: 4000. # Product of inertia
 
-  S_wing: 39.0193
-  b: 19.812
-  c: 1.9812
-  e: 0.9
+  # Wing parameters
+  S_wing: 39.0193 # Wing area in square meters
+  b: 19.812 # Wingspan in meters
+  c: 1.9812 # Mean aerodynamic chord in meters
+  e: 0.9 # Oswald efficiency factor, dimensionless
 
-  S_prop: 9.62112750161874
+  # Propeller parameters
+  S_prop: 9.62112750161874 # Propeller area in square meters
 
-  rho: 1.2682
-  g0: 9.8
+  # Atmospheric properties
+  rho: 1.2682 # Air density in kg/m^3
+  g0: 9.8 # Gravitational acceleration in m/s^2
 
 longitudinal_params:
-  C_L_0: 0.23
-  C_D_0: 0.043
-  C_m_0: 0.0135
+  # Longitudinal aerodynamic coefficients (dimensionless)
+  C_L_0: 0.23 # Lift coefficient at zero angle of attack
+  C_D_0: 0.043 # Drag coefficient at zero angle of attack
+  C_m_0: 0.0135 # Pitching moment coefficient at zero angle of attack
 
-  C_L_alpha: 5.61
-  C_D_alpha: 0.03
-  C_m_alpha: -2.74
+  C_L_alpha: 5.61 # Lift coefficient per radian of angle of attack
+  C_D_alpha: 0.03 # Drag coefficient per radian of angle of attack
+  C_m_alpha: -2.74 # Pitching moment coefficient per radian of angle of attack
 
-  C_L_q: 7.95
-  C_D_q: 0.0
-  C_m_q: -38.21
+  C_L_q: 7.95 # Lift coefficient per radian of pitch rate
+  C_D_q: 0.0 # Drag coefficient per radian of pitch rate
+  C_m_q: -38.21 # Pitching moment coefficient per radian of pitch rate
 
-  C_L_delta_e: 0.13
-  C_D_delta_e: 0.0135
-  C_m_delta_e: -0.99
+  C_L_delta_e: 0.13 # Lift coefficient per radian of elevator deflection
+  C_D_delta_e: 0.0135 # Drag coefficient per radian of elevator deflection
+  C_m_delta_e: -0.99 # Pitching moment coefficient per radian of elevator deflection
 
-  M: 50.0
-  alpha0: 0.47
-  epsilon: 0.16
-  C_D_p: 0.0
+  M: 50.0 # Mach number (dimensionless)
+  alpha0: 0.47 # Zero-lift angle of attack in radians
+  epsilon: 0.16 # Downwash angle in radians
+  C_D_p: 0.0 # Drag coefficient per radian of roll rate
 
 lateral_params:
-  C_Y_0: 0.0
-  C_ell_0: 0.0
-  C_n_0: 0.0
+  # Lateral aerodynamic coefficients (dimensionless)
+  C_Y_0: 0.0 # Side-force coefficient at zero sideslip angle
+  C_ell_0: 0.0 # Rolling moment coefficient at zero sideslip angle
+  C_n_0: 0.0 # Yawing moment coefficient at zero sideslip angle
 
-  C_Y_beta: -0.98
-  C_ell_beta: -0.13
-  C_n_beta: 0.073
+  C_Y_beta: -0.98 # Side-force coefficient per radian of sideslip angle
+  C_ell_beta: -0.13 # Rolling moment coefficient per radian of sideslip angle
+  C_n_beta: 0.073 # Yawing moment coefficient per radian of sideslip angle
 
-  C_Y_p: 0.0
-  C_ell_p: -0.51
-  C_n_p: 0.069
+  C_Y_p: 0.0 # Side-force coefficient per radian of roll rate
+  C_ell_p: -0.51 # Rolling moment coefficient per radian of roll rate
+  C_n_p: 0.069 # Yawing moment coefficient per radian of roll rate
 
-  C_Y_r: 0.0
-  C_ell_r: 0.25
-  C_n_r: -0.095
+  C_Y_r: 0.0 # Side-force coefficient per radian of yaw rate
+  C_ell_r: 0.25 # Rolling moment coefficient per radian of yaw rate
+  C_n_r: -0.095 # Yawing moment coefficient per radian of yaw rate
 
-  C_Y_delta_a: 0.075
-  C_ell_delta_a: 0.17
-  C_n_delta_a: -0.011
+  C_Y_delta_a: 0.075 # Side-force coefficient per radian of aileron deflection
+  C_ell_delta_a: 0.17 # Rolling moment coefficient per radian of aileron deflection
+  C_n_delta_a: -0.011 # Yawing moment coefficient per radian of aileron deflection
 
-  C_Y_delta_r: 0.19
-  C_ell_delta_r: 0.0024
-  C_n_delta_r: -0.069
+  C_Y_delta_r: 0.19 # Side-force coefficient per radian of rudder deflection
+  C_ell_delta_r: 0.0024 # Rolling moment coefficient per radian of rudder deflection
+  C_n_delta_r: -0.069 # Yawing moment coefficient per radian of rudder deflection
 
 prop_params:
-  D_prop: 3.5
+  # Propeller parameters
+  D_prop: 3.5 # Diameter of the propeller in meters
 
-  K_V: 6.756756756756757
-  R_motor: 0.042 # used
-  i0: 1.5
+  K_V: 6.756756756756757 # Motor voltage constant
+  R_motor: 0.042 # Motor resistance in ohms
+  i0: 1.5 # Motor no-load current in amperes
 
-  ncells: 120.0
+  ncells: 120.0 # Number of battery cells
 
-  C_Q2: -0.01664
-  C_Q1: 0.004970
-  C_Q0: 0.005230
-  C_T2: -0.1079
-  C_T1: -0.06044
-  C_T0: 0.09357
+  # Propeller torque coefficients
+  C_Q2: -0.01664 # Quadratic coefficient of torque as a function of angular speed
+  C_Q1: 0.004970 # Linear coefficient of torque as a function of angular speed
+  C_Q0: 0.005230 # Constant term of torque as a function of angular speed
+
+  # Propeller thrust coefficients
+  C_T2: -0.1079 # Quadratic coefficient of thrust as a function of angular speed
+  C_T1: -0.06044 # Linear coefficient of thrust as a function of angular speed
+  C_T0: 0.09357 # Constant term of thrust as a function of angular speed

@@ -191,6 +191,14 @@ class VTOL(Vehicle):
             dt (float): The time elapsed between the previous and current function calls (s).
         """
 
+
+        q = self._state.attitude
+        rot = R.from_quat(q)
+
+
+        # Get the Euler angles (roll, pitch, yaw)
+        euler_angles = rot.as_euler('xyz', degrees=False)
+
         # Get the articulation root of the vehicle
         articulation = self._world.dc_interface.get_articulation(self._stage_prefix)
         # Get the desired angular velocities for each rotor from the first backend (can be mavlink or other) expressed in rad/s
@@ -201,7 +209,7 @@ class VTOL(Vehicle):
                 desired_rotor_velocities = [0.0 for i in range(self._thrusters._num_rotors)]
 
         else:
-            desired_rotor_velocities = self.user_input.get_input_reference()
+            desired_rotor_velocities = self.user_input.get_input_reference(self._state, euler_angles)
 
 
         """
@@ -319,15 +327,9 @@ class VTOL(Vehicle):
         # self.apply_torque([0.0, 0.0, yaw_moment], "/body")
         # self.apply_torque([roll_moment, pitch_moment, yaw_moment], "/body")
 
-        q = self._state.attitude
-        rot = R.from_quat(q)
-
-
-        # Get the Euler angles (roll, pitch, yaw)
-        euler_angles = rot.as_euler('xyz', degrees=True)
         # Compute the total linear drag force to apply to the vehicle's body frame
-        drag = self._drag.update(self._state, euler_angles[1]+8, dt)
-        lift = self._lift.update(self._state, euler_angles[1]+8, dt)
+        # drag = self._drag.update(self._state, euler_angles[1]+8, dt)
+        # lift = self._lift.update(self._state, euler_angles[1]+8, dt)
 
 
         # print("lift = ", lift)
@@ -373,15 +375,16 @@ class VTOL(Vehicle):
             # {"label": "Roll Force Right",   "value": forces[6]},
             # {"label": "Aileron Right Command",   "value": self._thrusters._input_reference[6]},
             
-            {"label": "fx",   "value": fx},
-            {"label": "fy",   "value": fy},
-            {"label": "fz",   "value": fz},
-            {"label": "Mx",   "value": Mx},
-            {"label": "My",   "value": My},
-            {"label": "Mz",   "value": Mz},
-            # {"label": "MC Rotor 2",   "value": self._thrusters.force[1]},
-            # {"label": "MC Rotor 3",   "value": self._thrusters.force[2]},
-            # {"label": "MC Rotor 4",   "value": self._thrusters.force[3]},
+            # {"label": "fx",   "value": fx},
+            # {"label": "fy",   "value": fy},
+            # {"label": "fz",   "value": fz},
+            # {"label": "Mx",   "value": Mx},
+            # {"label": "My",   "value": My},
+            # {"label": "Mz",   "value": Mz},
+            {"label": "MC Rotor 1",   "value": self._thrusters.force[0]},
+            {"label": "MC Rotor 2",   "value": self._thrusters.force[1]},
+            {"label": "MC Rotor 3",   "value": self._thrusters.force[2]},
+            {"label": "MC Rotor 4",   "value": self._thrusters.force[3]},
         ]
 
         # Send each plot data to the qt plot script

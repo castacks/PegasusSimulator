@@ -2,7 +2,11 @@ import numpy as np
 
 from pegasus.simulator.logic.vehicles.utils.usb_drivers import ThrottleState, StickState, PedalsState, GamepadState
 import pegasus.simulator.logic.vehicles.utils.quadrotor_dynamics as quadrotor_dynamics
+from pegasus.simulator.logic.vehicles.utils.quad_control import Control
 
+import time
+
+import pickle
 
 class UserInput():
     def __init__(self, controller_type = 0, px4_control_surface_bias = 0):
@@ -19,7 +23,58 @@ class UserInput():
 
         self.control_surface_bias = px4_control_surface_bias
 
-    def get_input_reference(self):
+        self.quad_control = Control()
+
+        self.prev_time = time.time()
+        with open("/home/honda/workspace/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/logic/vehicles/utils/parameters/quad_pid_params.pkl", 'rb') as f:
+            self.Kp_attitude,\
+            self.Ki_attitude,\
+            self.Kd_attitude,\
+            self.Kp_rate,\
+            self.Ki_rate,\
+            self.Kd_rate,\
+            self.Kp_altitude,\
+            self.Ki_altitude,\
+            self.Kd_altitude,\
+            self.Kp_velocity,\
+            self.Ki_velocity,\
+            self.Kd_velocity,\
+            self.motor_constant = pickle.load(f)
+
+    def check_reload_control(self):
+        with open("/home/honda/workspace/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/logic/vehicles/utils/parameters/quad_pid_params.pkl", 'rb') as f:
+            self.Kp_attitude,\
+            self.Ki_attitude,\
+            self.Kd_attitude,\
+            self.Kp_rate,\
+            self.Ki_rate,\
+            self.Kd_rate,\
+            self.Kp_altitude,\
+            self.Ki_altitude,\
+            self.Kd_altitude,\
+            self.Kp_velocity,\
+            self.Ki_velocity,\
+            self.Kd_velocity,\
+            self.motor_constant = pickle.load(f)
+        
+            if (self.quad_control.Kp_attitude == self.Kp_attitude).all() and\
+            (self.quad_control.Ki_attitude == self.Ki_attitude).all() and\
+            (self.quad_control.Kd_attitude == self.Kd_attitude).all() and\
+            (self.quad_control.Kp_rate == self.Kp_rate).all() and\
+            (self.quad_control.Ki_rate == self.Ki_rate).all() and\
+            (self.quad_control.Kd_rate == self.Kd_rate).all() and\
+            self.quad_control.Kp_altitude == self.Kp_altitude and\
+            self.quad_control.Ki_altitude == self.Ki_altitude and\
+            self.quad_control.Kd_altitude == self.Kd_altitude and\
+            (self.quad_control.Kp_velocity == self.Kp_velocity).all() and\
+            (self.quad_control.Ki_velocity == self.Ki_velocity).all() and\
+            (self.quad_control.Kd_velocity == self.Kd_velocity).all() and\
+            self.quad_control.motor_constant == self.motor_constant:
+                return
+            else:
+                self.quad_control = Control()
+
+    def get_input_reference(self, state, euler_angles):
 
         input_reference = [0.0 for i in range(9)]
 
@@ -27,31 +82,55 @@ class UserInput():
             self.stick.refresh()
             self.throttle.refresh()
             self.pedals.refresh()
-            thrust = self.throttle.left * 0.5
-            moments = np.array([
-                [0.0 if abs(self.stick.x) < 0.1 else min(self.stick.x, 0.9)*0.005],
-                [0.0 if abs(self.stick.y) < 0.1 else min(self.stick.y, 0.9)*0.005],
-                [0.0 if abs(self.stick.z) < 0.1 else min(self.stick.z, 0.9)*0.005]
-            ])
-            u, w, F_new, M_new = self.quad.f2w(thrust, moments)
-
-            w_mul = 6.
 
             thrust_max  = 300.
             thrust_add_max = 50.
 
-            input_reference = [
-                self.throttle.left * thrust_max - self.stick.x*thrust_add_max - self.stick.y*thrust_add_max, # front right
-                self.throttle.left * thrust_max + self.stick.x*thrust_add_max + self.stick.y*thrust_add_max, # back left
-                self.throttle.left * thrust_max + self.stick.x*thrust_add_max - self.stick.y*thrust_add_max, # front left
-                self.throttle.left * thrust_max - self.stick.x*thrust_add_max + self.stick.y*thrust_add_max, # back right
-                self.throttle.right, # ~3000 rpm in rad/s
-                self.stick.x,
-                -self.stick.x,
-                self.stick.y,
-                self.stick.z
-            ]
+            mode = "velocity_altitude"
+
+            if mode == "rotor_vels":
+                
+                input_reference = [
+                    self.throttle.left * thrust_max - self.stick.x*thrust_add_max - self.stick.y*thrust_add_max, # front right
+                    self.throttle.left * thrust_max + self.stick.x*thrust_add_max + self.stick.y*thrust_add_max, # back left
+                    self.throttle.left * thrust_max + self.stick.x*thrust_add_max - self.stick.y*thrust_add_max, # front left
+                    self.throttle.left * thrust_max - self.stick.x*thrust_add_max + self.stick.y*thrust_add_max, # back right
+                    self.throttle.right, # ~3000 rpm in rad/s
+                    self.stick.x,
+                    -self.stick.x,
+                    self.stick.y,
+                    self.stick.z
+                ]
         
+            elif mode == 'velocity_altitude':
+                
+                new_time = time.time()
+
+                self.check_reload_control()
+
+                rotor_vels = self.quad_control.control(
+                    state,
+                    euler_angles,
+                    10,#state.position[2] + self.throttle.left * 2,
+                    euler_angles[2] + self.stick.z * 0.3,
+                    np.array([self.stick.y*20., -self.stick.x*20.]),
+                    new_time - self.prev_time
+                )
+                self.prev_time = new_time
+
+                input_reference = [
+                    rotor_vels[0],
+                    rotor_vels[1],
+                    rotor_vels[2],
+                    rotor_vels[3],
+                    self.throttle.right, # ~3000 rpm in rad/s
+                    self.stick.x,
+                    -self.stick.x,
+                    self.stick.y,
+                    self.stick.z
+                ]
+
+
         elif self.controller_type == 1:
             self.gamepad.refresh()
 
