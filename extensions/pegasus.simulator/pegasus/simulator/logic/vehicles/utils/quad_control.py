@@ -2,6 +2,9 @@ import numpy as np
 import time
 import pickle
 
+import os
+from pathlib import Path
+
 class PIDController:
     def __init__(self, Kp, Ki, Kd):
         self.Kp = Kp
@@ -78,7 +81,9 @@ class Control:
         # self.Ki_velocity = np.array([0.0, 0.0])
         # self.Kd_velocity = np.array([0.0, 0.0])
 
-        with open("/home/honda/workspace/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/logic/vehicles/utils/parameters/quad_pid_params.pkl", 'rb') as f:
+        self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())
+
+        with open(self.curr_dir + "/parameters/quad_pid_params.pkl", 'rb') as f:
             self.Kp_attitude,\
             self.Ki_attitude,\
             self.Kd_attitude,\

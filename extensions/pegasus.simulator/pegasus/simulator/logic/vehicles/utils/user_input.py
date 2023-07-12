@@ -8,6 +8,9 @@ import time
 
 import pickle
 
+import os
+from pathlib import Path
+
 class UserInput():
     def __init__(self, controller_type = 0, px4_control_surface_bias = 0):
 
@@ -26,7 +29,10 @@ class UserInput():
         self.quad_control = Control()
 
         self.prev_time = time.time()
-        with open("/home/honda/workspace/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/logic/vehicles/utils/parameters/quad_pid_params.pkl", 'rb') as f:
+
+        self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())
+
+        with open(self.curr_dir + "/parameters/quad_pid_params.pkl", 'rb') as f:
             self.Kp_attitude,\
             self.Ki_attitude,\
             self.Kd_attitude,\
@@ -42,7 +48,7 @@ class UserInput():
             self.motor_constant = pickle.load(f)
 
     def check_reload_control(self):
-        with open("/home/honda/workspace/PegasusSimulator/extensions/pegasus.simulator/pegasus/simulator/logic/vehicles/utils/parameters/quad_pid_params.pkl", 'rb') as f:
+        with open(self.curr_dir + "/parameters/quad_pid_params.pkl", 'rb') as f:
             self.Kp_attitude,\
             self.Ki_attitude,\
             self.Kd_attitude,\
