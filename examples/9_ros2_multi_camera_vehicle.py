@@ -25,16 +25,23 @@ simulation_app = SimulationApp({"headless": False})
 import omni.timeline
 from omni.isaac.core.world import World
 
+# Extra omni tools
+import omni.isaac.core.utils.prims as prim_utils
+from omni.isaac.debug_draw import _debug_draw
+
+
 # Import the Pegasus API for simulating drones
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS
 from pegasus.simulator.logic.state import State
 from pegasus.simulator.logic.backends.ros2_backend import ROS2Backend
 from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
-from pegasus.simulator.logic.sensors import RGBCamera
+from pegasus.simulator.logic.sensors import RGBDCamera
 
-# Auxiliary scipy and numpy modules
+# Auxiliary  modules
 from scipy.spatial.transform import Rotation
+import numpy as np
+import time as tm
 
 class PegasusApp:
     """
@@ -57,11 +64,19 @@ class PegasusApp:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
-        # Launch one of the worlds provided by NVIDIA
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Default Environment"])
+        # Add a custom light
+        prim_utils.create_prim(
+            "/World/Light/DomeLight",
+            "DomeLight",
+            attributes={
+                "intensity": 1000.0
+        })
 
-        for i in range(1):
-            self.vehicle_factory(i, gap_x_axis=1.0, num_cameras=1)
+        # Launch one of the worlds provided by NVIDIA
+        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Warehouse with Forklifts"])
+
+        for i in range(2):
+            self.vehicle_factory(i, gap_x_axis=1.0, num_cameras=2)
 
         # Reset the simulation environment so that all articulations (aka robots) are initialized
         self.world.reset()
@@ -81,7 +96,7 @@ class PegasusApp:
         # Try to spawn the selected robot in the world to the specified namespace
         config_multirotor = MultirotorConfig()
         for cam_id in range(num_cameras):
-            config_multirotor.sensors += [RGBCamera(id=cam_id, app=simulation_app)]
+            config_multirotor.sensors += [RGBDCamera(id=cam_id, app=simulation_app)]
         config_multirotor.backends = [ROS2Backend(vehicle_id=vehicle_id)]
 
         Multirotor(

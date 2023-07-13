@@ -16,7 +16,7 @@ from pegasus.simulator.logic.backends.mavlink_backend import MavlinkBackend
 # Sensors and dynamics setup
 from pegasus.simulator.logic.dynamics import LinearDrag
 from pegasus.simulator.logic.thrusters import QuadraticThrustCurve
-from pegasus.simulator.logic.sensors import Barometer, IMU, Magnetometer, GPS, RGBCamera
+from pegasus.simulator.logic.sensors import Barometer, IMU, Magnetometer, GPS, RGBDCamera
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 
 class MultirotorConfig:

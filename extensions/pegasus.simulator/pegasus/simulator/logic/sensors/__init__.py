@@ -8,4 +8,4 @@ from .barometer import Barometer
 from .gps import GPS
 from .imu import IMU
 from .magnetometer import Magnetometer
-from .rgb_camera import RGBCamera
+from .rgbd_camera import RGBDCamera
