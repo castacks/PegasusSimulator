@@ -56,12 +56,12 @@ class PegasusApp:
         self.world = self.pg.world
 
         # Launch one of the worlds provided by NVIDIA
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Default Environment"])
 
         # Create the vehicle
         # Try to spawn the selected robot in the world to the specified namespace
         config_multirotor = MultirotorConfig()
-        config_multirotor.backends = [ROS2Backend(vehicle_id=1)]
+        config_multirotor.backends = [ROS2Backend(vehicle_id=0)]
 
         Multirotor(
             "/World/quadrotor",

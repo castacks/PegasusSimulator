@@ -41,3 +41,7 @@ _build
 build/
 install/
 log/
+COLCON_IGNORE
+
+# Results
+examples/results/*

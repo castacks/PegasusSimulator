@@ -75,8 +75,6 @@ class PegasusApp:
 
         # Create the vehicle
         # Try to spawn the selected robot in the world to the specified namespace
-        # Create the vehicle
-        # Try to spawn the selected robot in the world to the specified namespace
         config_multirotor = MultirotorConfig()
         config_multirotor.backends = [ROS2Backend(vehicle_id=vehicle_id)]
 

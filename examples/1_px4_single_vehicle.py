@@ -53,7 +53,7 @@ class PegasusApp:
         self.world = self.pg.world
 
         # Launch one of the worlds provided by NVIDIA
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Default Environment"])
 
         # Create the vehicle
         # Try to spawn the selected robot in the world to the specified namespace
@@ -62,7 +62,7 @@ class PegasusApp:
         mavlink_config = MavlinkBackendConfig({
             "vehicle_id": 0,
             "px4_autolaunch": True,
-            "px4_dir": "/home/marcelo/PX4-Autopilot",
+            "px4_dir": "/home/micahnye/isaac_px4_fork",
             "px4_vehicle_model": 'iris'
         })
         config_multirotor.backends = [MavlinkBackend(mavlink_config)]

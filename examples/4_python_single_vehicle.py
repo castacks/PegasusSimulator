@@ -22,6 +22,11 @@ simulation_app = SimulationApp({"headless": False})
 import omni.timeline
 from omni.isaac.core.world import World
 
+# Used for adding extra lights to the environment
+import omni.isaac.core.utils.prims as prim_utils
+
+from omni.isaac.debug_draw import _debug_draw
+
 # Import the Pegasus API for simulating drones
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS
 from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig
@@ -30,13 +35,14 @@ from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 # Import the custom python control backend
 from utils.nonlinear_controller import NonlinearController
 
-# Auxiliary scipy and numpy modules
-from scipy.spatial.transform import Rotation
-
 # Use os and pathlib for parsing the desired trajectory from a CSV file
 import os
 from pathlib import Path
 
+# Auxiliary modules
+from scipy.spatial.transform import Rotation
+import numpy as np
+import time as tm
 
 class PegasusApp:
     """
@@ -59,17 +65,28 @@ class PegasusApp:
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
+        # Add a custom light with a high-definition HDR surround environment of an exhibition hall,
+        # instead of the typical ground plane
+        prim_utils.create_prim(
+            "/World/Light/DomeLight",
+            "DomeLight",
+            attributes={
+                "intensity": 1000.0
+        })
+
         # Launch one of the worlds provided by NVIDIA
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Default Environment"])
 
         # Get the current directory used to read trajectories and save results
         self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())
+
+        tm.sleep(2)
 
         # Create the vehicle 1
         # Try to spawn the selected robot in the world to the specified namespace
         config_multirotor1 = MultirotorConfig()
         config_multirotor1.backends = [NonlinearController(
-            trajectory_file=self.curr_dir + "/trajectories/pitch_relay_90_deg_2.csv",
+            trajectory_file=self.curr_dir + "/trajectories/fast_xyz_ellipse.csv",
             results_file=self.curr_dir + "/results/single_statistics.npz",
             Ki=[0.5, 0.5, 0.5],
             Kr=[2.0, 2.0, 2.0]
@@ -83,6 +100,17 @@ class PegasusApp:
             Rotation.from_euler("XYZ", [0.0, 0.0, 0.0], degrees=True).as_quat(),
             config=config_multirotor1,
         )
+
+        self.pg.set_viewport_camera([7.53, -1.6, 4.96], [0.0, 3.3, 7.0])
+
+        # Read the trajectories and plot them inside isaac sim
+        trajectory = np.flip(np.genfromtxt(self.curr_dir + "/trajectories/fast_xyz_ellipse.csv", delimiter=','), axis=0)
+        num_samples2,_ = trajectory.shape
+
+        # Draw the lines of the desired trajectory in Isaac Sim with the same color as the output plots for the paper
+        draw = _debug_draw.acquire_debug_draw_interface()
+        point_list_2 = [(trajectory[i,1], trajectory[i,2], trajectory[i,3]) for i in range(num_samples2)]
+        draw.draw_lines_spline(point_list_2, (255/255, 0, 0, 1), 5, False)
 
         # Reset the simulation environment so that all articulations (aka robots) are initialized
         self.world.reset()
