@@ -18,7 +18,10 @@ enable_extension("omni.isaac.ros2_bridge")
 import rclpy
 from std_msgs.msg import Float64
 from sensor_msgs.msg import Imu, MagneticField, NavSatFix, NavSatStatus, Image
-from geometry_msgs.msg import PoseStamped, TwistStamped, AccelStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped, AccelStamped, PoseWithCovariance, TwistWithCovariance
+from nav_msgs.msg import Odometry
+# from pegasus_msgs.msg import Control
+# from omni.isaac.ros2_bridge.omni.isaac.rclpy.pegasus_msgs import Control
 
 import omni.kit.app
 from pegasus.simulator.logic.backends.backend import Backend
@@ -35,33 +38,39 @@ class ROS2Backend(Backend):
         # Save the configurations for this backend
         self._id = vehicle_id
         self._num_rotors = num_rotors
+        self._namespace = "vehicle"+str(vehicle_id)
 
         # Start the actual ROS2 setup here
-        self.node = rclpy.create_node("vehicle_" + str(vehicle_id))
+        self.node = rclpy.create_node(node_name="node",namespace=self._namespace)
 
         # Create publishers for the state of the vehicle in ENU
-        self.pose_pub = self.node.create_publisher(PoseStamped, "vehicle" + str(self._id) + "/state/pose", 10)
-        self.twist_pub = self.node.create_publisher(TwistStamped, "vehicle" + str(self._id) + "/state/twist", 10)
-        self.twist_inertial_pub = self.node.create_publisher(TwistStamped, "vehicle" + str(self._id) + "/state/twist_inertial", 10)
-        self.accel_pub = self.node.create_publisher(AccelStamped, "vehicle" + str(self._id) + "/state/accel", 10)
+        self.pose_pub = self.node.create_publisher(PoseStamped,"state/pose", 10)
+        self.twist_pub = self.node.create_publisher(TwistStamped, "state/twist", 10)
+        self.odom_pub = self.node.create_publisher(Odometry, "state/odom", 10)
+        self.twist_inertial_pub = self.node.create_publisher(TwistStamped, "state/twist_inertial", 10)
+        self.accel_pub = self.node.create_publisher(AccelStamped, "state/accel", 10)
 
         # Create publishers for some sensor data
-        self.imu_pub = self.node.create_publisher(Imu, "vehicle" + str(self._id) + "/sensors/imu", 10)
-        self.mag_pub = self.node.create_publisher(MagneticField, "vehicle" + str(self._id) + "/sensors/mag", 10)
-        self.gps_pub = self.node.create_publisher(NavSatFix, "vehicle" + str(self._id) + "/sensors/gps", 10)
-        self.gps_vel_pub = self.node.create_publisher(TwistStamped, "vehicle" + str(self._id) + "/sensors/gps_twist", 10)
+        self.imu_pub = self.node.create_publisher(Imu, "sensors/imu", 10)
+        self.mag_pub = self.node.create_publisher(MagneticField, "sensors/mag", 10)
+        self.gps_pub = self.node.create_publisher(NavSatFix, "sensors/gps", 10)
+        self.gps_vel_pub = self.node.create_publisher(TwistStamped, "sensors/gps_twist", 10)
 
         # TODO: Investigate camera data publishing from traditional interface for standard node format
         self.camera_pubs = {}
 
+        # self.control_sub = self.node.create_subscription(Control, self._namespace+"/command", self.control_callback, 10)
         # Subscribe to vector of floats with the target angular velocities to control the vehicle
         # This is not ideal, but we need to reach out to NVIDIA so that they can improve the ROS2 support with custom messages
         # The current setup as it is.... its a pain!!!!
-        self.rotor_subs = []
-        for i in range(self._num_rotors):
-            self.rotor_subs.append(self.node.create_subscription(Float64, "vehicle" + str(self._id) + "/control/rotor" + str(i) + "/ref", lambda msg, rotor_id=i: self.rotor_callback(msg, rotor_id), 10))
-    
+        self.control_sub0 = self.node.create_subscription(Float64, "command0", self.control_callback0, 10)
+        self.control_sub1 = self.node.create_subscription(Float64, "command1", self.control_callback1, 10)
+        self.control_sub2 = self.node.create_subscription(Float64, "command2", self.control_callback2, 10)
+        self.control_sub3 = self.node.create_subscription(Float64, "command3", self.control_callback3, 10)
+
         # Setup zero input reference for the thrusters
+        self.intermediate_input_ref = [0.0 for i in range(self._num_rotors)]
+        self.rec0 = self.rec1 = self.rec2 = self.rec3 = False
         self.input_ref = [0.0 for i in range(self._num_rotors)]
 
     def update_state(self, state):
@@ -72,17 +81,13 @@ class ROS2Backend(Backend):
         pose = PoseStamped()
         twist = TwistStamped()
         twist_inertial = TwistStamped()
+        odom = Odometry()
         accel = AccelStamped()
-
-        # Update the header
-        pose.header.stamp = self.node.get_clock().now().to_msg()
-        twist.header.stamp = pose.header.stamp
-        twist_inertial.header.stamp = pose.header.stamp
-        accel.header.stamp = pose.header.stamp
 
         pose.header.frame_id = "world"
         twist.header.frame_id = "base_link"
         twist_inertial.header.frame_id = "world"
+        odom.header.frame_id = "world"
         accel.header.frame_id = "world"
 
         # Fill the position and attitude of the vehicle in ENU
@@ -109,16 +114,48 @@ class ROS2Backend(Backend):
         twist_inertial.twist.linear.y = state.linear_velocity[1]
         twist_inertial.twist.linear.z = state.linear_velocity[2]
 
+        # Update odometry proper
+        odom.pose.pose = pose.pose
+        odom.twist.twist.linear = twist_inertial.twist.linear
+        odom.twist.twist.angular = twist.twist.angular
+
         # Fill the linear acceleration in the inertial frame
         accel.accel.linear.x = state.linear_acceleration[0]
         accel.accel.linear.y = state.linear_acceleration[1]
         accel.accel.linear.z = state.linear_acceleration[2]
 
+        # Update the header
+        pose.header.stamp = self.node.get_clock().now().to_msg()
+        twist.header.stamp = pose.header.stamp
+        twist_inertial.header.stamp = pose.header.stamp
+        odom.header.stamp = pose.header.stamp
+        accel.header.stamp = pose.header.stamp
+
         # Publish the messages containing the state of the vehicle
         self.pose_pub.publish(pose)
         self.twist_pub.publish(twist)
         self.twist_inertial_pub.publish(twist_inertial)
+        self.odom_pub.publish(odom)
         self.accel_pub.publish(accel)
+
+    def control_callback(self, msg):
+        u_1 = msg.thrust
+        tau = np.array([msg.moment1, msg.moment2, msg.moment3])
+        self.input_ref = self.vehicle.force_and_torques_to_velocities(u_1, tau)
+    
+    # GROSS
+    def control_callback0(self, msg):
+        self.intermediate_input_ref[0]=float(msg.data)
+        self.rec0 = True
+    def control_callback1(self, msg):
+        self.intermediate_input_ref[1]=float(msg.data)
+        self.rec1 = True
+    def control_callback2(self, msg):
+        self.intermediate_input_ref[2]=float(msg.data)
+        self.rec2 = True
+    def control_callback3(self, msg):
+        self.intermediate_input_ref[3]=float(msg.data)
+        self.rec3 = True
 
     def rotor_callback(self, ros_msg: Float64, rotor_id):
         # Update the reference for the rotor of the vehicle
@@ -212,6 +249,13 @@ class ROS2Backend(Backend):
         Returns:
             A list with the target angular velocities for each individual rotor of the vehicle
         """
+        print("Calling input_reference")
+        if self.rec0 and self.rec1 and self.rec2 and self.rec3:
+            self.input_ref = self.vehicle.force_and_torques_to_velocities(self.intermediate_input_ref[0], self.intermediate_input_ref[1:])
+            print(f"We've received everything! intermediate input ref {self.intermediate_input_ref[0], self.intermediate_input_ref[1:]}")
+            self.rec0 = self.rec1 = self.rec2 = self.rec3 = False
+
+        print(f"self.input_ref {self.input_ref}")
         return self.input_ref
 
     def update(self, dt: float):
