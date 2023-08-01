@@ -1,24 +1,26 @@
 """
-| File: rgb_camera.py
+| File: rgbd_camera.py
 | Author: Micah Nye (micahn@andrew.cmu.edu)
 | License: BSD-3-Clause. Copyright (c) 2023, Micah Nye. All rights reserved.
-| Description: Simulates an RGB camera using the Omnigraph framework provided in Isaacsim
+| Description: Simulates an RGBD camera using the Omnigraph framework provided in Isaacsim
 """
 __all__ = ["RGBDCamera"]
 
 import carb
-import sys
 
 import omni
+import omni.graph.core as og
 from omni.isaac.core.utils import stage
 from omni.isaac.core.utils.prims import is_prim_path_valid
-from omni.kit.viewport.utility import get_active_viewport, get_active_viewport_and_window
-import omni.graph.core as og
 from omni.isaac.core.utils.prims import set_targets
+from omni.usd import get_stage_next_free_path
+from pxr import Gf, UsdGeom, Usd
 
 from pegasus.simulator.logic.state import State
 from pegasus.simulator.logic.sensors import Sensor
+from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 class RGBDCamera(Sensor):
     """The class that implements the Camera sensor. This class inherits the base class Sensor.
@@ -33,12 +35,19 @@ class RGBDCamera(Sensor):
         Examples:
             The dictionary default parameters are
 
-            >>> {"position": [0.0, 0.0, 0.0],         # Meters
-            >>>  "orientation": [0.0, 0.0, 0.0, 1.0], # Quaternion [qx, qy, qz, qw]
-            >>>  "focal_length": 250.0,               # Pixels
-            >>>  "resolution": [640, 480],            # Pixels
-            >>>  "set_projection_type": "pinhole",    # pinhole, fisheyeOrthographic, fisheyeEquidistant, fisheyeEquisolid, fisheyePolynomial, fisheyeSpherical
-            >>>  "update_rate": 60.0}                 # Hz
+            >>> {"position": [0.0, 0.0, 0.0],           # Meters
+            >>>  "orientation": [0.0, 0.0, 0.0, 1.0]    # Quaternion [qx, qy, qz, qw]
+            >>>  "focal_length": 24.0,                  # Pixels
+            >>>  "focal_distance": 400.0,               # Meters
+            >>>  "resolution": [3840, 2160],            # Pixels (not actually used)
+            >>>  "update_rate": 30.0,                   # Hz
+            >>>  "focal_length": 24.0,                  # Meters
+            >>>  "focal_distance": 400.0,               # Millimeters
+            >>>  "horizonal_aperture": 20.9550,         # f-stop
+            >>>  "vertical_aperture": 15.2908,          # f-stop
+            >>>  "clipping_range": [0.0001, 1000000.0], # Meters
+            >>>  "set_projection": "perspective",       # perspective or orthographic
+            >>>  "set_projection_type": "pinhole",      # pinhole, fisheyeOrthographic, fisheyeEquidistant, fisheyeEquisolid, fisheyePolynomial, fisheyeSpherical
         """
 
         # Initialize the Super class "object" attribute
@@ -58,12 +67,14 @@ class RGBDCamera(Sensor):
         # Set the position of the camera relative to the vehicle
         self._position = np.array(config.get("position", [0.0, 0.0, 0.0]))
         self._orientation = np.array(config.get("orientation", [0.0, 0.0, 0.0, 1.0]))  # Quaternion [qx, qy, qz, qw]
+        self._rotation = R.from_quat(self._orientation).as_euler("XYZ", degrees=True)
 
-        # Set the default camera parameters if making a new camera, not already on the vehicle. TODO: Add making new camera support
+        # Set the default camera parameters if making a new camera, not already on the vehicle.
         self._focal_length = config.get("focal_length", 24.0)
         self._focal_distance = config.get("focal_distance", 400.0)
         self._clipping_range = config.get("clipping_range", [0.0001, 1000000.0])
         self._resolution = config.get("resolution", [640, 480])
+        self._set_projection = config.get("set_projection", "perspective")
         self._set_projection_type = config.get("set_projection_type", "pinhole")
         self._horizonal_aperture = config.get("horizontal_aperture", 20.9550)
         self._vertical_aperture = config.get("vertical_aperture", 15.2908)
@@ -71,14 +82,14 @@ class RGBDCamera(Sensor):
         # Save the current state of the camera sensor
         self._state = {
             "id": self._id,
-            "position": np.array([0.0, 0.0, 0.0]),
-            "orientation": np.array([0.0, 0.0, 0.0, 1.0]),
+            "position": self._position,
+            "orientation": self._orientation,
             "frame_num": 0,
             "frame": None,
         }
 
     def initialize(self, origin_lat, origin_lon, origin_alt, vehicle=None):
-        """Method that initializes the action graph of the camera. It also initalizes the sensor latitude, longitude and
+        """Method that initializes the action graph of the camera attached to a vehicle. It also initalizes the sensor latitude, longitude and
         altitude attributes as well as the vehicle that the sensor is attached to.
         
         Args:
@@ -94,15 +105,48 @@ class RGBDCamera(Sensor):
 
         # Set the prim_path for the camera. If the vehicle has one, no need to create a new prim from scratch
         camera_prim_path = self._vehicle.prim_path + "/body/camera" + str(self._id)
+        self.make_action_graph(camera_prim_path)
 
-        # TODO: Clean this up by removing redundancy -- Only ROS specific portion of the graphs are the CREATE_NODES sections
+    def spawn(self, stage_prefix = "/World/Camera"):
+        """Method that spawns a new camera in the scene and its corresponding action graph of the camera.
+        
+        Args:
+            stage_prefix (string): The path where the Camera will be placed.
+        """
+        self._namespace = "/standalone" + str(self._id)
+        self._frame_id = self._namespace + "/camera" + str(self._id)
+
+        # Get current world and stage to spawn camera in
+        self._world = PegasusInterface().world
+        self._current_stage = self._world.stage
+
+        # Create unique stage prefix
+        # TODO: Make better so that it doesn't append annoying _0x at the end of your path
+        self._stage_prefix = get_stage_next_free_path(self._current_stage, stage_prefix + str(self._id), False)
+
+        # Creating a new Camera prim
+        camera_prim = UsdGeom.Camera(omni.usd.get_context().get_stage().DefinePrim(self._stage_prefix, "Camera"))
+        xform_api = UsdGeom.XformCommonAPI(camera_prim)
+        xform_api.SetTranslate(Gf.Vec3d(self._position[0], self._position[1], self._position[2]))
+        xform_api.SetRotate((self._rotation[0], self._rotation[1], self._rotation[2]), UsdGeom.XformCommonAPI.RotationOrderXYZ)
+        camera_prim.GetHorizontalApertureAttr().Set(self._horizonal_aperture)
+        camera_prim.GetVerticalApertureAttr().Set(self._vertical_aperture)
+        camera_prim.GetProjectionAttr().Set(self._set_projection)
+        camera_prim.GetFocalLengthAttr().Set(self._focal_length)
+        camera_prim.GetFocusDistanceAttr().Set(self._focal_distance)
+
+        self._simulator_app.update()
+        self.make_action_graph(self._stage_prefix)
+
+    def make_action_graph(self, camera_prim_path):
+        if not is_prim_path_valid(camera_prim_path):
+            carb.log_error(f"Could not find camera at prim_path {camera_prim_path}. Not generating the {self._ros} publisher")
+            return
+        
+        # Brute force check ROS version because Nvidia made the ros bridge and helper names inconsistent with format.
         if self._ros == "ROS2":
-            if not is_prim_path_valid(camera_prim_path):
-                carb.log_error(f"Could not find camera at prim_path {camera_prim_path}. Not generating the ROS2 publisher")
-                return
-            ros_camera_graph_path = self._vehicle.prim_path  + "/body/ROS2_Camera" + str(self._id)
+            ros_camera_graph_path = camera_prim_path  + "/ROS2_Camera" + str(self._id)
             ros_camera_tf_graph_path = ros_camera_graph_path + "_TF"
-
             self._simulator_app.update()
 
             # Creating an on-demand push graph with cameraHelper nodes to generate ROS image publishers
@@ -138,7 +182,7 @@ class RGBDCamera(Sensor):
                     ],
                     keys.SET_VALUES: [
                         ("createViewport.inputs:viewportId", self._id),
-                        ("createViewport.inputs:name", self._vehicle._stage_prefix + "/camera" + str(self._id)),
+                        ("createViewport.inputs:name", camera_prim_path + "/camera" + str(self._id)),
 
                         ("cameraHelperRgb.inputs:nodeNamespace", self._namespace),
                         ("cameraHelperRgb.inputs:frameId", self._frame_id),
@@ -178,11 +222,8 @@ class RGBDCamera(Sensor):
                 },
             )
         elif self._ros == "ROS1":
-            if not is_prim_path_valid(camera_prim_path):
-                carb.log_error(f"Could not find camera at prim_path {camera_prim_path}. Not generating the ROS1 publisher")
-                return
             ros_camera_graph_path = self._vehicle.prim_path  + "/body/ROS1_Camera" + str(self._id)
-
+            ros_camera_tf_graph_path = ros_camera_graph_path + "_TF"
             self._simulator_app.update()
 
             # Creating an on-demand push graph with cameraHelper nodes to generate ROS image publishers
@@ -269,6 +310,7 @@ class RGBDCamera(Sensor):
             carb.log_error(f"ROS version {self._ros} is invalid")
             return
         
+        # Set Prim targets for action graphs
         set_targets(
             prim=stage.get_current_stage().GetPrimAtPath(ros_camera_graph_path + "/setCamera"),
             attribute="inputs:cameraPrim",
