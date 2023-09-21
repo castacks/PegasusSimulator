@@ -26,9 +26,12 @@ CONFIG_FILE = ROOT + "/pegasus.simulator/config/configs.yaml"
 # Define the Extension Assets Path
 ASSET_PATH = ROOT + "/pegasus.simulator/pegasus/simulator/assets"
 ROBOTS_ASSETS = ASSET_PATH + "/Robots"
+WORLD_ASSETS = ASSET_PATH + "/Worlds"
 
 # Define the built in robots of the extension
-ROBOTS = {"Iris": ROBOTS_ASSETS + "/Iris/iris.usd"} #, "Flying Cube": ROBOTS_ASSETS + "/iris_cube.usda"}
+ROBOTS = {"Iris": ROBOTS_ASSETS + "/Iris/iris.usd",
+          "Iris_contrast": ROBOTS_ASSETS + "/Iris/iris_contrast.usd",
+} #, "Flying Cube": ROBOTS_ASSETS + "/iris_cube.usda"}
 
 # Setup the default simulation environments path
 NVIDIA_ASSETS_PATH = str(nucleus.get_assets_root_path())
@@ -54,7 +57,9 @@ OMNIVERSE_ENVIRONMENTS = {
     "Exhibition Hall": "omniverse://localhost/NVIDIA/Assets/Scenes/Templates/Interior/ZetCG_ExhibitionHall.usd"
 }
 
+
 SIMULATION_ENVIRONMENTS = {}
+UNREAL_ENVIRONMENTS = {}
 
 # Add the Isaac Sim assets to the list
 for asset in NVIDIA_SIMULATION_ENVIRONMENTS:
@@ -65,6 +70,10 @@ for asset in NVIDIA_SIMULATION_ENVIRONMENTS:
 # Add the omniverse assets to the list
 for asset in OMNIVERSE_ENVIRONMENTS:
     SIMULATION_ENVIRONMENTS[asset] = OMNIVERSE_ENVIRONMENTS[asset]
+
+UNREAL_ENVIRONMENTS = {'DownTown': WORLD_ASSETS + "/DownTown/Content/DownTown_ToScale.usd",
+                       'Gascola': WORLD_ASSETS + "/Gascola/Content/Gascola.usd",
+                       'Forest': WORLD_ASSETS + "/Forest.usd"}
 
 # Define the default settings for the simulation environment
 DEFAULT_WORLD_SETTINGS = {"physics_dt": 1.0 / 250.0, "stage_units_in_meters": 1.0, "rendering_dt": 1.0 / 60.0}
