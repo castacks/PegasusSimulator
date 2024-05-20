@@ -88,6 +88,8 @@ class RGBDCamera(Sensor):
             "frame": None,
         }
 
+        self._temp_num = 0
+
     def initialize(self, origin_lat, origin_lon, origin_alt, vehicle=None):
         """Method that initializes the action graph of the camera attached to a vehicle. It also initalizes the sensor latitude, longitude and
         altitude attributes as well as the vehicle that the sensor is attached to.
@@ -104,7 +106,7 @@ class RGBDCamera(Sensor):
         self._frame_id = self._namespace + "/camera" + str(self._id)
 
         # Set the prim_path for the camera. If the vehicle has one, no need to create a new prim from scratch
-        camera_prim_path = self._vehicle.prim_path + "/body/camera" + str(self._id)
+        camera_prim_path = self._vehicle.prim_path + "/camera" + str(self._id)
         self.make_action_graph(camera_prim_path)
 
     def spawn(self, stage_prefix = "/World/Camera"):
@@ -125,20 +127,22 @@ class RGBDCamera(Sensor):
         self._stage_prefix = get_stage_next_free_path(self._current_stage, stage_prefix + str(self._id), False)
 
         # Creating a new Camera prim
-        camera_prim = UsdGeom.Camera(omni.usd.get_context().get_stage().DefinePrim(self._stage_prefix, "Camera"))
-        xform_api = UsdGeom.XformCommonAPI(camera_prim)
-        xform_api.SetTranslate(Gf.Vec3d(self._position[0], self._position[1], self._position[2]))
-        xform_api.SetRotate((self._rotation[0], self._rotation[1], self._rotation[2]), UsdGeom.XformCommonAPI.RotationOrderXYZ)
-        camera_prim.GetHorizontalApertureAttr().Set(self._horizonal_aperture)
-        camera_prim.GetVerticalApertureAttr().Set(self._vertical_aperture)
-        camera_prim.GetProjectionAttr().Set(self._set_projection)
-        camera_prim.GetFocalLengthAttr().Set(self._focal_length)
-        camera_prim.GetFocusDistanceAttr().Set(self._focal_distance)
+        self._camera_prim = UsdGeom.Camera(omni.usd.get_context().get_stage().DefinePrim(self._stage_prefix, "Camera"))
+        self._xform_api = UsdGeom.XformCommonAPI(self._camera_prim)
+        self.set_pose(self._position, self._orientation)
+        # self._xform_api.SetTranslate(Gf.Vec3d(self._position[0], self._position[1], self._position[2]))
+        # self._xform_api.SetRotate((self._rotation[0], self._rotation[1], self._rotation[2]), UsdGeom.XformCommonAPI.RotationOrderXYZ)
+        self._camera_prim.GetHorizontalApertureAttr().Set(self._horizonal_aperture)
+        self._camera_prim.GetVerticalApertureAttr().Set(self._vertical_aperture)
+        self._camera_prim.GetProjectionAttr().Set(self._set_projection)
+        self._camera_prim.GetFocalLengthAttr().Set(self._focal_length)
+        self._camera_prim.GetFocusDistanceAttr().Set(self._focal_distance)
 
         self._simulator_app.update()
         self.make_action_graph(self._stage_prefix)
 
     def make_action_graph(self, camera_prim_path):
+        self._camera_prim_path = camera_prim_path
         if not is_prim_path_valid(camera_prim_path):
             carb.log_error(f"Could not find camera at prim_path {camera_prim_path}. Not generating the {self._ros} publisher")
             return
@@ -327,6 +331,24 @@ class RGBDCamera(Sensor):
         og.Controller.evaluate_sync(ros_camera_tf_graph)
 
         self._simulator_app.update()
+
+    def set_pose(self, position, orientation):
+        print(f"Setting pose to {position}, {orientation}")
+        self._xform_api.SetTranslate(Gf.Vec3d(position[0], position[1], position[2]))
+        rotation = R.from_quat(orientation).as_euler("XYZ", degrees=True)
+        self._xform_api.SetRotate((rotation[0], rotation[1], rotation[2]), UsdGeom.XformCommonAPI.RotationOrderXYZ)
+
+    @property
+    def stage_prefix(self):
+        return self._stage_prefix
+
+    @property
+    def prim(self):
+        return self._camera_prim
+    
+    @property
+    def xform(self):
+        return self._xform_api
 
     @property
     def state(self):

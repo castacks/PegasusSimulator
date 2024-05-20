@@ -31,6 +31,7 @@ WORLD_ASSETS = ASSET_PATH + "/Worlds"
 # Define the built in robots of the extension
 ROBOTS = {"Iris": ROBOTS_ASSETS + "/Iris/iris.usd",
           "Iris_contrast": ROBOTS_ASSETS + "/Iris/iris_contrast.usd",
+          "moving_camera": ROBOTS_ASSETS + "/Camera/camera.usd"
 } #, "Flying Cube": ROBOTS_ASSETS + "/iris_cube.usda"}
 
 # Setup the default simulation environments path
