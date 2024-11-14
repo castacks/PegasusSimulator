@@ -20,10 +20,8 @@ from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 
 # Vehicle Manager to spawn Vehicles
 from pegasus.simulator.logic.backends import MavlinkBackend, MavlinkBackendConfig, \
-        MavlinkBackendVTOL, MavlinkBackendVTOLConfig, ROS2Backend, \
         MavlinkBackendHex, MavlinkBackendHexConfig
 from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig
-from pegasus.simulator.logic.vehicles.vtol import VTOL, VTOLConfig
 from pegasus.simulator.logic.vehicles.tilted_hex import TiltedHex, HexConfig
 from pegasus.simulator.logic.vehicle_manager import VehicleManager
 
@@ -80,8 +78,9 @@ class UIDelegate:
         # Atributes to store the PX4 airframe
         self._px4_airframe_field: ui.AbstractValueModel = None
         # self._px4_airframe: str = 'iris'
-        # self._px4_airframe: str = 'standard_vtol'
-        self._px4_airframe: str = 'typhoon_h480'
+        self._px4_airframe: str = 'gazebo-classic_typhoon_h480'
+        # self._px4_airframe: str = 'hexa_x_tilt'
+
         self._vehicle_type = 2
 
     def set_window_bind(self, window):
@@ -134,18 +133,16 @@ class UIDelegate:
         # current_index = value_model.as_int
         # print(f"index {current_index}.")
         print("vehichle index = ", self._vehicle_dropdown.get_item_value_model().as_int)
-        if(self._vehicle_dropdown.get_item_value_model().as_int == 1):
-            self._px4_airframe = "iris"
+        if(self._vehicle_dropdown.get_item_value_model().as_int == 0):
+            self._px4_airframe = "gazebo-classic_iris"
             self._vehicle_type = 1
-        elif(self._vehicle_dropdown.get_item_value_model().as_int == 3):
-            self._px4_airframe = "typhoon_h480"
-            # self._px4_airframe = "iris"
+        elif(self._vehicle_dropdown.get_item_value_model().as_int == 1):
+            self._px4_airframe = "gazebo-classic_typhoon_h480"
             self._vehicle_type = 2
-            self._px4_dir = "/home/honda/workspace/aerial_manipulation_ws/src/Firmware"
+        elif(self._vehicle_dropdown.get_item_value_model().as_int == 2):
+            self._px4_airframe = "hexa_x_tilt"
+            self._vehicle_type = 3
         
-        else:
-            self._vehicle_type = 0
-            self._px4_airframe = "standard_vtol"
         
     def on_load_scene(self):
         """
@@ -243,24 +240,7 @@ class UIDelegate:
                 print("vehicle type = ", self._vehicle_type)
                 print("airframe = " + px4_airframe)
                 
-                if(self._vehicle_type == 0): #VTOL
-                    mavlink_config = MavlinkBackendVTOLConfig({
-                        "vehicle_id": self._vehicle_id,
-                        "px4_autolaunch": px4_autostart,
-                        "px4_dir": px4_path,
-                        "px4_vehicle_model": px4_airframe
-                    })
-                    config_multirotor = VTOLConfig()
-                    config_multirotor.backends = [MavlinkBackendVTOL(mavlink_config)]
-                    VTOL(
-                        "/World/vtol",
-                        ROBOTS[selected_robot],
-                        self._vehicle_id,
-                        pos,
-                        Rotation.from_euler("XYZ", euler_angles, degrees=True).as_quat(),
-                        config=config_multirotor,
-                    )
-                elif(self._vehicle_type == 1): #Quadrotor
+                if(self._vehicle_type == 1): #Quadrotor
                     mavlink_config = MavlinkBackendConfig({
                         "vehicle_id": self._vehicle_id,
                         "px4_autolaunch": px4_autostart,
@@ -277,7 +257,7 @@ class UIDelegate:
                         Rotation.from_euler("XYZ", euler_angles, degrees=True).as_quat(),
                         config=config_multirotor,
                     )
-                elif(self._vehicle_type == 2): #Tilted Hex
+                else: # Hexarotor (standard or tilted)
                     mavlink_config = MavlinkBackendHexConfig({
                         "vehicle_id": self._vehicle_id,
                         "px4_autolaunch": px4_autostart,

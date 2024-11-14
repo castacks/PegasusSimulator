@@ -13,6 +13,25 @@ Sensors
    sensors.imu
    sensors.magnetometer
 
+Graphical Sensors
+-----------------
+
+.. toctree::
+   :maxdepth: 2
+
+   graphical_sensors.graphical_sensor
+   graphical_sensors.monocular_camera
+   graphical_sensors.lidar
+
+Graphs
+------
+
+.. toctree::
+   :maxdepth: 2
+
+   graphs.graph
+   graphs.ros2_camera_graph
+
 Dynamics
 --------
 
@@ -49,6 +68,13 @@ Vehicle
    vehicles.vehicle
    vehicles.vehicle_manager
    vehicles.multirotor 
+
+People
+------
+.. toctree::
+   :maxdepth: 2
+
+   people
 
 Pegasus Interace
 ----------------

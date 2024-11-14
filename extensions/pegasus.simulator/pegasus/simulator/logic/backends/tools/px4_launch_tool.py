@@ -17,7 +17,7 @@ class PX4LaunchTool:
     PX4 was already built with 'make px4_sitl_default none'), the vehicle id and the vehicle model. 
     """
 
-    def __init__(self, px4_dir, vehicle_id: int = 0, px4_model: str = "iris"):
+    def __init__(self, px4_dir, vehicle_id: int = 0, px4_model: str = "gazebo-classic_iris"):
         """Construct the PX4LaunchTool object
 
         Args:
@@ -36,10 +36,10 @@ class PX4LaunchTool:
         # terminal
         self.px4_dir = px4_dir
         self.rc_script = self.px4_dir + "/ROMFS/px4fmu_common/init.d-posix/rcS"
-        # self.rc_script = self.px4_dir + "/ROMFS/px4fmu_common/init.d-posix/rcS"
 
         # Create a temporary filesystem for px4 to write data to/from (and modify the origin rcS files)
-        self.root_fs = self.px4_dir + "/log_file_isaac/"
+        # self.root_fs = tempfile.TemporaryDirectory()
+        self.root_fs = self.px4_dir + "/isaac_tuning_params/"
 
         # Set the environement variables that let PX4 know which vehicle model to use internally
         self.environment = os.environ
@@ -49,15 +49,6 @@ class PX4LaunchTool:
         """
         Method that will launch a px4 instance with the specified configuration
         """
-        print("PX4 command:   " + self.px4_dir + "/build/px4_sitl_default/bin/px4 " +
-                self.px4_dir + "/ROMFS/px4fmu_common/ " +
-                "-s " +
-                self.rc_script + 
-                "-i " +
-                str(self.vehicle_id) +
-                "-d")
-        print("root_fs = ", self.root_fs)
-        print("env = ", self.environment)
         self.px4_process = subprocess.Popen(
             [
                 self.px4_dir + "/build/px4_sitl_default/bin/px4",
@@ -68,6 +59,7 @@ class PX4LaunchTool:
                 str(self.vehicle_id),
                 "-d",
             ],
+            # cwd=self.root_fs.name,
             cwd=self.root_fs,
             shell=False,
             env=self.environment,

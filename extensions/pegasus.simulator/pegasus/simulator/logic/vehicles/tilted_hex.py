@@ -42,8 +42,14 @@ class HexConfig:
 
         self.drag = LinearDrag([0.50, 0.30, 0.0])
 
-        # The default sensors for a quadrotor
+        # The default sensors for vehicle
         self.sensors = [Barometer(), IMU(), Magnetometer(), GPS()]
+
+        # The default graphical sensors for vehicle
+        self.graphical_sensors = []
+
+        # The default omnigraphs for a quadrotor
+        self.graphs = []
 
         # The backends for actually sending commands to the vehicle. By default use mavlink (with default mavlink configurations)
         # [Can be None as well, if we do not desired to use PX4 with this simulated vehicle]. It can also be a ROS2 backend
@@ -61,7 +67,7 @@ class TiltedHex(Vehicle):
         usd_file: str = "",
         vehicle_id: int = 0,
         # Spawning pose of the vehicle
-        init_pos=[0.0, 0.0, 0.07],
+        init_pos=[0.0, 0.0, 1.0],
         init_orientation=[0.0, 0.0, 0.0, 1.0],
         config=HexConfig(),
     ):
@@ -77,16 +83,15 @@ class TiltedHex(Vehicle):
         """
 
         # 1. Initiate the Vehicle object itself
-        super().__init__(stage_prefix, usd_file, init_pos, init_orientation)
+        super().__init__(stage_prefix, usd_file, init_pos, init_orientation, config.sensors, config.graphical_sensors, config.graphs, config.backends)
 
-        # 2. Initialize all the vehicle sensors
-        self._sensors = config.sensors
-        for sensor in self._sensors:
-            sensor.initialize(PegasusInterface().latitude, PegasusInterface().longitude, PegasusInterface().altitude)
+        # self._sensors = config.sensors
+        # for sensor in self._sensors:
+        #     sensor.initialize(PegasusInterface().latitude, PegasusInterface().longitude, PegasusInterface().altitude)
 
         # Add callbacks to the physics engine to update each sensor at every timestep
         # and let the sensor decide depending on its internal update rate whether to generate new data
-        self._world.add_physics_callback(self._stage_prefix + "/Sensors", self.update_sensors)
+        # self._world.add_physics_callback(self._stage_prefix + "/Sensors", self.update_sensors)
 
         # 3. Setup the dynamics of the system
         # Get the thrust curve of the vehicle from the configuration
@@ -95,12 +100,12 @@ class TiltedHex(Vehicle):
 
         # 4. Save the backend interface (if given in the configuration of the multirotor)
         # and initialize them
-        self._backends = config.backends
-        for backend in self._backends:
-            backend.initialize(self)
+        # self._backends = config.backends
+        # for backend in self._backends:
+        #     backend.initialize(self)
 
         # Add a callbacks for the
-        self._world.add_physics_callback(self._stage_prefix + "/mav_state", self.update_sim_state)
+        # self._world.add_physics_callback(self._stage_prefix + "/mav_state", self.update_sim_state)
 
     def update_sensors(self, dt: float):
         """Callback that is called at every physics steps and will call the sensor.update method to generate new
@@ -157,7 +162,7 @@ class TiltedHex(Vehicle):
         """
 
         # Get the articulation root of the vehicle
-        articulation = self._world.dc_interface.get_articulation(self._stage_prefix)
+        articulation = self.get_dc_interface().get_articulation(self._stage_prefix)
         # Get the desired angular velocities for each rotor from the first backend (can be mavlink or other) expressed in rad/s
         if len(self._backends) != 0:
             desired_rotor_velocities = self._backends[0].input_reference()
@@ -175,13 +180,15 @@ class TiltedHex(Vehicle):
         # print("yaw_moment = ", yaw_moment)
 
         # Apply force to each rotor
-        rotor_shift = [0, 1, 4, 5, 2, 3]
+        
+        rotor_shift = [1, 0, 3, 2, 5, 4] # Works on standard hexarotor
+        # rotor_shift = [4, 5, 2, 3, 0, 1]
         for i in range(6):
             # Apply the force in Z on the rotor frame
             # print(f"control {i} = {forces[i]}")
-            self.apply_force([0.0, 0.0, forces[i]], body_part="/rotor" + str(i))
+            # self.apply_force([0.0, 0.0, forces[i]], body_part="/rotor" + str(i))
             
-            # self.apply_force([0.0, 0.0, 3], body_part="/rotor" + str(rotor_shift[i]))
+            self.apply_force([0.0, 0.0, forces[i]], body_part="/rotor" + str(rotor_shift[i]))
 
             # Generate the rotating propeller visual effect
             self.handle_propeller_visual(i, forces[i], articulation)
@@ -220,17 +227,16 @@ class TiltedHex(Vehicle):
         """
 
         # Rotate the joint to yield the visual of a rotor spinning (for animation purposes only)
-        joint = self._world.dc_interface.find_articulation_dof(articulation, "joint" + str(rotor_number))
-
+        joint = self.get_dc_interface().find_articulation_dof(articulation, "joint" + str(rotor_number))
         # Spinning when armed but not applying force
         if 0.0 < force < 0.1:
-                self._world.dc_interface.set_dof_velocity(joint, 5 * self._thrusters.rot_dir[rotor_number])
+                self.get_dc_interface().set_dof_velocity(joint, 5 * self._thrusters.rot_dir[rotor_number])
         # Spinning when armed and applying force
         elif 0.1 <= force:
-            self._world.dc_interface.set_dof_velocity(joint, 100 * self._thrusters.rot_dir[rotor_number])
+            self.get_dc_interface().set_dof_velocity(joint, 100 * self._thrusters.rot_dir[rotor_number])
         # Not spinning
         else:
-            self._world.dc_interface.set_dof_velocity(joint, 0)
+            self.get_dc_interface().set_dof_velocity(joint, 0)
     
 
     def force_and_torques_to_velocities(self, force: float, torque: np.ndarray):
@@ -251,10 +257,10 @@ class TiltedHex(Vehicle):
         print("force = ", force)
         print("torque = ", torque)
         # Get the body frame of the vehicle
-        rb = self._world.dc_interface.get_rigid_body(self._stage_prefix + "/body")
+        rb = self.get_dc_interface().get_rigid_body(self._stage_prefix + "/body")
 
         # Get the rotors of the vehicle
-        rotors = [self._world.dc_interface.get_rigid_body(self._stage_prefix + "/rotor" + str(i)) for i in range(self._thrusters._num_rotors)]
+        rotors = [self.get_dc_interface().get_rigid_body(self._stage_prefix + "/rotor" + str(i)) for i in range(self._thrusters._num_rotors)]
 
         # Get the relative position of the rotors with respect to the body frame of the vehicle (ignoring the orientation for now)
         relative_poses = self._world.dc_interface.get_relative_body_poses(rb, rotors)

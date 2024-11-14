@@ -7,7 +7,7 @@
 import os
 from pathlib import Path
 
-import omni.isaac.core.utils.nucleus as nucleus
+import omni.isaac.nucleus as nucleus
 
 # Extension configuration
 EXTENSION_NAME = "Pegasus Simulator"
@@ -28,10 +28,12 @@ ASSET_PATH = ROOT + "/pegasus.simulator/pegasus/simulator/assets"
 ROBOTS_ASSETS = ASSET_PATH + "/Robots"
 
 # Define the built in robots of the extension
-ROBOTS = {"Tilted Hex": ROBOTS_ASSETS + "/Hexarotor/standard_hex.usd",
-          "Passenger Vtol": ROBOTS_ASSETS + "/Passenger_vtol/passenger_vtol_final.usd",
-          "Iris": ROBOTS_ASSETS + "/Iris/iris.usd",
-          "PX4 Vtol": ROBOTS_ASSETS + "/PX4_vtol/PX4_vtol.usd",
+ROBOTS = {"Iris": ROBOTS_ASSETS + "/Iris/iris.usd",
+	      "Standard Hex": ROBOTS_ASSETS + "/Standard_Hex/standard_hex.usd",
+	      "Tilted Hex": ROBOTS_ASSETS + "/Standard_Hex/tilted_hex.usd"
+          #"Passenger Vtol": ROBOTS_ASSETS + "/Passenger_vtol/passenger_vtol_final.usd",
+          #"Iris": ROBOTS_ASSETS + "/Iris/iris.usd",
+          #"PX4 Vtol": ROBOTS_ASSETS + "/PX4_vtol/PX4_vtol.usd",
           } #, "Flying Cube": ROBOTS_ASSETS + "/iris_cube.usda"}
 
 # Setup the default simulation environments path
@@ -71,7 +73,7 @@ for asset in OMNIVERSE_ENVIRONMENTS:
     SIMULATION_ENVIRONMENTS[asset] = OMNIVERSE_ENVIRONMENTS[asset]
 
 # Define the default settings for the simulation environment
-DEFAULT_WORLD_SETTINGS = {"physics_dt": 1.0 / 250.0, "stage_units_in_meters": 1.0, "rendering_dt": 1.0 / 60.0}
+DEFAULT_WORLD_SETTINGS = {"physics_dt": 1.0 / 250.0, "stage_units_in_meters": 1.0, "rendering_dt": 1.0 / 60.0, "device": "cpu"}
 
 # Define where the thumbnail of the vehicle is located
 THUMBNAIL = ROBOTS_ASSETS + "/Iris/iris_thumbnail.png"

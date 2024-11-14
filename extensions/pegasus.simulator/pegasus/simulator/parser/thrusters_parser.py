@@ -6,14 +6,13 @@
 # Sensors that can be used with the vehicles
 from pegasus.simulator.parser import Parser
 from pegasus.simulator.logic.thrusters import QuadraticThrustCurve
-from pegasus.simulator.logic.thrusters import VtolActuations
 
 
 class ThrustersParser(Parser):
     def __init__(self):
 
         # Dictionary of available thrust curves to instantiate
-        self.thrust_curves = {"vtol_actuations": VtolActuations, "quadratic_thrust_curve": QuadraticThrustCurve}
+        self.thrust_curves = {"quadratic_thrust_curve": QuadraticThrustCurve}
 
     def parse(self, data_type: str, data_dict):
 

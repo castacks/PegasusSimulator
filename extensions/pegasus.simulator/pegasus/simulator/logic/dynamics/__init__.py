@@ -3,6 +3,5 @@
 | License: BSD-3-Clause. Copyright (c) 2023, Marcelo Jacinto. All rights reserved.
 """
 
-from .aerodynamics import Aerodynamics
+from .drag import Drag
 from .linear_drag import LinearDrag
-from .lift import Lift

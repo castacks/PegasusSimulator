@@ -5,10 +5,10 @@
 | License: BSD-3-Clause. Copyright (c) 2023, Marcelo Jacinto. All rights reserved.
 """
 import numpy as np
-from pegasus.simulator.logic.dynamics.aerodynamics import Aerodynamics
+from pegasus.simulator.logic.dynamics.drag import Drag
 from pegasus.simulator.logic.state import State
 
-class LinearDrag(Aerodynamics):
+class LinearDrag(Drag):
     """
     Class that implements linear drag computations afftecting a rigid body. It inherits the Drag base class.
     """
@@ -27,15 +27,13 @@ class LinearDrag(Aerodynamics):
         super().__init__()
 
         # The linear drag coefficients of the vehicle's body frame
-        # self._drag_coefficients = np.diag(drag_coefficients)
         self._drag_coefficients = np.diag(drag_coefficients)
-        self._air_density = 1.293
-        self._reference_area = 1 / 7
+
         # The drag force to apply on the vehicle's body frame
         self._drag_force = np.array([0.0, 0.0, 0.0])
 
     @property
-    def force(self):
+    def drag(self):
         """The drag force to be applied on the body frame of the vehicle
 
         Returns:

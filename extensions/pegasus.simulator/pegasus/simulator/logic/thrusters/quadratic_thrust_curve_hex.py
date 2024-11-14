@@ -52,7 +52,7 @@ class QuadraticThrustCurveHex(ThrustCurve):
         # Values for the minimum and maximum rotor velocity in rad/s
         self.min_rotor_velocity = config.get("min_rotor_velocity", [0, 0, 0, 0, 0, 0])
         assert len(self.min_rotor_velocity) == self._num_rotors
-        mx_v = 1100
+        mx_v = 1500
         self.max_rotor_velocity = config.get("max_rotor_velocity", [mx_v, mx_v, mx_v, mx_v, mx_v, mx_v])
         assert len(self.max_rotor_velocity) == self._num_rotors
 

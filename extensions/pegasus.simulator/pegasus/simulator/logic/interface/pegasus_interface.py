@@ -16,10 +16,11 @@ from threading import Lock
 
 # NVidia API imports
 import carb
+import omni.kit.app
 from omni.isaac.core.world import World
-from omni.isaac.core.utils.stage import clear_stage
+from omni.isaac.core.utils.stage import clear_stage, create_new_stage_async, update_stage_async, create_new_stage
 from omni.isaac.core.utils.viewports import set_camera_view
-import omni.isaac.core.utils.nucleus as nucleus
+import omni.isaac.nucleus as nucleus
 
 # Pegasus Simulator internal API
 from pegasus.simulator.params import DEFAULT_WORLD_SETTINGS, SIMULATION_ENVIRONMENTS, CONFIG_FILE
@@ -58,14 +59,14 @@ class PegasusInterface:
         # Initialize the world with the default simulation settings
         self._world_settings = DEFAULT_WORLD_SETTINGS
         self._world = None
-        #self.initialize_world()
-
+        
         # Initialize the latitude, longitude and altitude of the simulated environment at the (0.0, 0.0, 0.0) coordinate
         # from the extension configuration file
         self._latitude, self._longitude, self._altitude = self._get_global_coordinates_from_config()
 
         # Get the px4_path from the extension configuration file
         self._px4_path: str = self._get_px4_path_from_config()
+        self._px4_default_airframe: str = self._get_px4_default_airframe_from_config()
         carb.log_info("Default PX4 path:" + str(self._px4_path))
 
     @property
@@ -121,6 +122,15 @@ class PegasusInterface:
             str: A string with the installation directory for PX4 (if it was setup). Otherwise it is None.
         """
         return self._px4_path
+    
+    @property
+    def px4_default_airframe(self):
+        """A string with the PX4 default airframe (if it was setup). Otherwise it is None.
+
+        Returns:
+            str: A string with the PX4 default airframe (if it was setup). Otherwise it is None.
+        """
+        return self._px4_default_airframe
     
     def set_global_coordinates(self, latitude=None, longitude=None, altitude=None):
         """Method that can be used to set the latitude, longitude and altitude of the simulation world at the origin.
@@ -196,13 +206,13 @@ class PegasusInterface:
         """
 
         # If the physics simulation was running, stop it first
-        if self.world is not None:
-            self.world.stop()
+        if self._world is not None:
+            self._world.stop()
 
         # Clear the world
-        if self.world is not None:
-            self.world.clear_all_callbacks()
-            self.world.clear()
+        if self._world is not None:
+            self._world.clear_all_callbacks()
+            self._world.clear()
 
         # Clear the stage
         clear_stage()
@@ -213,6 +223,9 @@ class PegasusInterface:
         # Call python's garbage collection
         gc.collect()
 
+        # Re-initialize the world
+        self._world = World(**self._world_settings)
+
         # Re-initialize the physics context
         asyncio.ensure_future(self._world.initialize_simulation_context_async())
         carb.log_info("Current scene and its vehicles has been deleted")
@@ -222,14 +235,24 @@ class PegasusInterface:
 
         Args:
             usd_path (str): The path where the USD file describing the world is located.
-            force_clear (bool): Whether to perform a clear before loading the asset. Defaults to False.
+            force_clear (bool): Whether to perform a clear before loading the asset. Defaults to False. 
+            It should be set to True only if the method is invoked from an App (GUI mode).
         """
+
+        carb.log_warn("Loading a new environment into the simulator. Please wait...")
 
         # Reset and pause the world simulation (only if force_clear is true)
         # This is done to maximize the support between running in GUI as extension vs App
         if force_clear == True:
-            await self.world.reset_async()
-            await self.world.stop_async()
+
+            # Create a new stage and initialize (or re-initialized) the world
+            await create_new_stage_async()
+            self._world = World(**self._world_settings)
+            await self._world.initialize_simulation_context_async()
+            self._world = World.instance()
+
+            await self._world.reset_async()
+            await self._world.stop_async()
 
         # Load the USD asset that will be used for the environment
         try:
@@ -337,6 +360,26 @@ class PegasusInterface:
             carb.log_warn("Could not retrieve px4_dir from: " + str(CONFIG_FILE))
 
         return px4_dir
+    
+    def _get_px4_default_airframe_from_config(self):
+        """
+        Method that reads the configured PX4 default airframe from the extension configuration file 
+
+        Returns:
+            str: A string with the path to the PX4 default airframe or empty string ''
+        """
+        px4_default_airframe = ""
+        
+        # Open the configuration file. If it fails, just return the empty path
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                data = yaml.safe_load(f)
+            px4_default_airframe = os.path.expanduser(data.get("px4_default_airframe", None))
+        except:
+            carb.log_warn("Could not retrieve px4_default_airframe from: " + str(CONFIG_FILE))
+
+        return px4_default_airframe
+
 
     def _get_global_coordinates_from_config(self):
         """Method that reads the default latitude, longitude and altitude from the extension configuration file
@@ -389,6 +432,32 @@ class PegasusInterface:
             carb.log_warn("Could not save px4_dir to: " + str(CONFIG_FILE))
 
         carb.log_warn("New px4_dir set to: " + str(self._px4_path))
+
+    def set_px4_default_airframe(self, airframe: str):
+        """Method that allows a user to save a new px4 default airframe for the extension.
+
+        Args:
+            absolute_path (str): The new px4 default airframe
+        """
+        
+        # Save the new path for current use during this simulation
+        self._px4_default_airframe = airframe
+
+        # Save the new path in the configurations file for the next simulations
+        try:
+
+            # Open the configuration file and the all the configurations that it contains
+            with open(CONFIG_FILE, 'r') as f:
+                data = yaml.safe_load(f)
+
+            # Open the configuration file. If it fails, just warn in the console
+            with open(CONFIG_FILE, 'w') as f:
+                data["px4_default_airframe"] = airframe
+                yaml.dump(data, f)
+        except:
+            carb.log_warn("Could not save px4_default_airframe to: " + str(CONFIG_FILE))
+
+        carb.log_warn("New px4_default_airframe set to: " + str(self._px4_default_airframe))
 
     def set_default_global_coordinates(self):
         """

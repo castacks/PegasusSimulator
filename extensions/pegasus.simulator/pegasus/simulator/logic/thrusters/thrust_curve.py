@@ -50,7 +50,7 @@ class ThrustCurve:
         pass
 
     @property
-    def yaw_moment(self):
+    def rolling_moment(self):
         """The total rolling moment being generated on the body frame of the vehicle by the rotating propellers
 
         Returns:

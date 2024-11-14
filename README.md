@@ -1,9 +1,9 @@
 # Pegasus Simulator
 
-![IsaacSim 2022.2.0](https://img.shields.io/badge/IsaacSim-2022.2.0-brightgreen.svg)
-![PX4-Autopilot 1.13.2](https://img.shields.io/badge/PX4--Autopilot-1.13.2-brightgreen.svg)
-![Ubuntu 20.04](https://img.shields.io/badge/Ubuntu-20.04LTS-brightgreen.svg)
+![IsaacSim 4.1.0](https://img.shields.io/badge/IsaacSim-4.1.0-brightgreen.svg)
+![PX4-Autopilot 1.14.3](https://img.shields.io/badge/PX4--Autopilot-1.14.3-brightgreen.svg)
 ![Ubuntu 22.04](https://img.shields.io/badge/Ubuntu-22.04LTS-brightgreen.svg)
+[![](https://dcbadge.limes.pink/api/server/[INVITE](https://discord.gg/AjCxw2QUmt?style=flat))](https://discord.gg/AjCxw2QUmt)
 
 **Pegasus Simulator** is a framework built on top of [NVIDIA
 Omniverse](https://docs.omniverse.nvidia.com/) and [Isaac
@@ -17,17 +17,24 @@ Sim](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/overview.html).
 
 Check the provided documentation [here](https://pegasussimulator.github.io/PegasusSimulator/) to discover how to install and use this framework.
 
+## Latest Updates
+
+* **2024-08-02**: Pegasus Simulator v4.1.0 is released for Isaac 4.1.0. This version is **NOT** compatible with older versions of Isaac Sim.
+
 ## Citation
 
-Paper comming out soon...
-
+If you find Pegasus Simulator useful in your academic work, please cite the paper below. It is also available [here](https://doi.org/10.1109/ICUAS60882.2024.10556959).
 ```
-@misc{jacinto2023pegasus,
-	   author = {Jacinto, Marcelo and Pinto, João and Patrikar, Jay and Keller, John and Cunha, Rita and Scherer, Sebastian and Pascoal, António},
-	   title = {Pegasus Simulator: An Isaac Sim Framework for Multiple Aerial Vehicles Simulation},
-	   year = {2023},
-	   eprint = {}
-}
+@INPROCEEDINGS{10556959,
+  author={Jacinto, Marcelo and Pinto, João and Patrikar, Jay and Keller, John and Cunha, Rita and Scherer, Sebastian and Pascoal, António},
+  booktitle={2024 International Conference on Unmanned Aircraft Systems (ICUAS)}, 
+  title={Pegasus Simulator: An Isaac Sim Framework for Multiple Aerial Vehicles Simulation}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={917-922},
+  keywords={Simulation;Robot sensing systems;Real-time systems;Sensor systems;Sensors;Task analysis},
+  doi={10.1109/ICUAS60882.2024.10556959}}
 ```
 
 ## Main Developer Team
@@ -45,7 +52,12 @@ This simulation framework is an open-source effort, started by me, Marcelo Jacin
 	* [Marcelo Jacinto](https://github.com/MarceloJacinto)
 	* [João Pinto](https://github.com/jschpinto)
 
-Also check the always up-to-date [Github contributors list](https://github.com/PegasusSimulator/PegasusSimulator/graphs/contributors)
+Also check the always up-to-date [Github contributors list](https://github.com/PegasusSimulator/PegasusSimulator/graphs/contributors) with all the open-source contributors.
+
+## Guidance, Control and Navigation Project
+
+In parallel to this project, the Pegasus (GNC) guidance, control, and navigation project serves as the foundation control code for performing real-world experiments for my Ph.D. More information can be found at this link:
+[Pegasus GNC](https://pegasusresearch.github.io/pegasus/)
 
 ## Project Roadmap
 

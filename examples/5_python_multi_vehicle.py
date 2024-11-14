@@ -9,7 +9,7 @@ for the vehicle from scratch and use it to perform a simulation, without using P
 
 # Imports to start Isaac Sim from this script
 import carb
-from omni.isaac.kit import SimulationApp
+from isaacsim import SimulationApp
 
 # Start Isaac Sim's simulation environment
 # Note: this simulation app must be instantiated right after the SimulationApp import, otherwise the simulator will crash
@@ -31,14 +31,15 @@ from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorCo
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 
 # Import the custom python control backend
-from utils.nonlinear_controller import NonlinearController
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)) + '/utils')
+from nonlinear_controller import NonlinearController
 
 # Auxiliary scipy and numpy modules
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-# Use os and pathlib for parsing the desired trajectory from a CSV file
-import os
+# Use pathlib for parsing the desired trajectory from a CSV file
 from pathlib import Path
 
 import random
@@ -71,10 +72,13 @@ class PegasusApp:
         prim_utils.create_prim(
             "/World/Light/DomeLight",
             "DomeLight",
+            position=np.array([1.0, 1.0, 1.0]),
             attributes={
-                "texture:file": "omniverse://localhost/NVIDIA/Assets/Skies/Indoor/ZetoCGcom_ExhibitionHall_Interior1.hdr",
-                "intensity": 1000.0
-        })
+                "inputs:intensity": 5e3,
+                "inputs:color": (1.0, 1.0, 1.0),
+                "inputs:texture:file": "omniverse://localhost/NVIDIA/Assets/Skies/Indoor/ZetoCGcom_ExhibitionHall_Interior1.hdr"
+            }
+        )
 
         # Get the current directory used to read trajectories and save results
         self.curr_dir = str(Path(os.path.dirname(os.path.realpath(__file__))).resolve())

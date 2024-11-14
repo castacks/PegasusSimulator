@@ -22,7 +22,6 @@ class State:
         - linear_body_velocity - A numpy array with [u,v,w] that defines the velocity of the vehicle expressed in the FLU body frame.
         - angular_velocity - A numpy array with [p,q,r] with the angular velocity of the vehicle's FLU body frame, relative to an ENU inertial frame, expressed in the FLU body frame.
         - linear acceleration - An array with [x_ddot, y_ddot, z_ddot] with the acceleration of the vehicle expressed in the inertial frame according to an ENU convention.
-        - airspeed - A float value representing the airspeed of the vehicle.
     """
 
     def __init__(self):
@@ -49,11 +48,6 @@ class State:
 
         # The linear acceleration [ax, ay, az] of the vehicle's body frame relative to the inertial frame, expressed in the inertial frame
         self.linear_acceleration = np.array([0.0, 0.0, 0.0])
-
-        # The airspeed of the vehicle
-        self.airspeed = 0.0
-
-        
 
     def get_position_ned(self):
         """
