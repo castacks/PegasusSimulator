@@ -30,7 +30,7 @@ ROBOTS_ASSETS = ASSET_PATH + "/Robots"
 # Define the built in robots of the extension
 ROBOTS = {"Iris": ROBOTS_ASSETS + "/Iris/iris.usd",
 	      "Standard Hex": ROBOTS_ASSETS + "/Standard_Hex/standard_hex.usd",
-	      "Tilted Hex": ROBOTS_ASSETS + "/Standard_Hex/tilted_hex.usd"
+	      "Tilted Hex": ROBOTS_ASSETS + "/Tilted_Hex/tilted_hex.usd"
           #"Passenger Vtol": ROBOTS_ASSETS + "/Passenger_vtol/passenger_vtol_final.usd",
           #"Iris": ROBOTS_ASSETS + "/Iris/iris.usd",
           #"PX4 Vtol": ROBOTS_ASSETS + "/PX4_vtol/PX4_vtol.usd",
